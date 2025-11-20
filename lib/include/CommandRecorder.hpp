@@ -32,8 +32,6 @@ public:
 
     bool saveJSON(const std::string& filePath) const;
     bool loadJSON(const std::string& filePath);
-    bool save(const std::string& filePath) const;
-    bool load(const std::string& filePath);
 
     unsigned int seed() const { return m_seed; }
     void setSeed(unsigned int s) { m_seed = s; }

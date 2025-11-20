@@ -81,8 +81,6 @@ static const std::vector<std::pair<std::string, std::string>> COMMAND_HELP = {
     {"E", "Exportar frames em PNG (frames/vector)"},
     {"M", "Exportar MP4 (vector.mp4) via ffmpeg"},
     {"G", "Iniciar/Parar gravacao de comandos"},
-    {"S", "Salvar comandos gravados em texto (commands.log)"},
-    {"L", "Carregar e executar replay imediato (commands.log)"},
     {"J", "Salvar comandos em JSON (commands.json)"},
     {"K", "Carregar JSON e iniciar replay temporal"},
     {"P", "Pausar/Retomar replay temporal"},
@@ -276,30 +274,6 @@ int main() {
                         pushSubtitle("Seed=" + std::to_string(recorder.seed()));
                     }
                     pushSubtitle(recorder.isRecording()?"Gravacao ON":"Gravacao OFF");
-                }
-                else if (event.key.code == sf::Keyboard::S) {
-                    if (recorder.save(recordFile)) std::cout << "[Recorder] Comandos salvos em " << recordFile << "\n";
-                    pushSubtitle("Salvar LOG");
-                }
-                else if (event.key.code == sf::Keyboard::L) {
-                    if (recorder.load(recordFile)) {
-                        std::cout << "[Recorder] Replay imediato iniciando...\n";
-                        for (const auto& cmd : recorder.get()) {
-                            if (cmd.target == "vector") {
-                                if (cmd.op == "INSERT" && cmd.hasValue) controllerArray.insertAt(cmd.index, cmd.value);
-                                else if (cmd.op == "REMOVE") controllerArray.removeAt(cmd.index);
-                                else if (cmd.op == "HIGHLIGHT") controllerArray.highlightAt(cmd.index);
-                                pushSubtitle("Replay:"+cmd.op+" vector");
-                            } else if (cmd.target == "list") {
-                                if (cmd.op == "INSERT" && cmd.hasValue) controllerList.insertAt(cmd.index, cmd.value);
-                                else if (cmd.op == "REMOVE") controllerList.removeAt(cmd.index);
-                                else if (cmd.op == "HIGHLIGHT") controllerList.highlightAt(cmd.index);
-                                pushSubtitle("Replay:"+cmd.op+" list");
-                            }
-                        }
-                        std::cout << "[Recorder] Replay imediato finalizado." << std::endl;
-                        pushSubtitle("Replay imediato fim");
-                    }
                 }
                 else if (event.key.code == sf::Keyboard::J) {
                     if (recorder.saveJSON(recordJSON)) std::cout << "[Recorder] JSON salvo em " << recordJSON << "\n";
