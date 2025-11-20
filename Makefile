@@ -2,7 +2,7 @@ CXX ?= g++
 
 EXEC = visualizador
 
-SRCS = $(wildcard *.cpp)
+SRCS = $(wildcard app/*.cpp)
 OBJS = $(SRCS:.cpp=.o)
 
 PKGCONFIG_BIN := $(shell command -v pkg-config 2>/dev/null)
@@ -25,17 +25,31 @@ ifneq ($(NIX_SFML_LIBDIR),)
 SFML_LIBS += -L$(NIX_SFML_LIBDIR)
 endif
 
-CXXFLAGS = $(STD_FLAG) -Wall -Wextra -g $(SFML_CFLAGS)
+CXXFLAGS = $(STD_FLAG) -Wall -Wextra -g $(SFML_CFLAGS) -Ilib/include
 
 LDLIBS = $(SFML_LIBS)
 
-all: $(EXEC)
+LIB_SRCS := $(wildcard lib/src/*.cpp)
+LIB_OBJS := $(LIB_SRCS:.cpp=.o)
+LIB_STATIC := lib/libdatastructures.a
 
-$(EXEC): $(OBJS)
-	$(CXX) $(OBJS) -o $(EXEC) $(LDLIBS)
+all: $(LIB_STATIC) $(EXEC)
+
+library: $(LIB_STATIC)
+
+$(LIB_STATIC): $(LIB_OBJS)
+	@mkdir -p lib
+	ar rcs $@ $(LIB_OBJS)
+	@echo "Biblioteca estatica criada: $@"
+
+$(EXEC): $(LIB_STATIC) $(OBJS)
+	$(CXX) $(OBJS) -Llib -ldatastructures -o $(EXEC) $(LDLIBS)
 	@echo "Executavel '$(EXEC)' criado com sucesso!"
 
-%.o: %.cpp
+app/%.o: app/%.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+	
+lib/src/%.o: lib/src/%.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 run: all
@@ -44,5 +58,14 @@ run: all
 clean:
 	@echo "Limpando arquivos gerados..."
 	rm -f $(OBJS) $(EXEC)
+	rm -f $(LIB_OBJS) $(LIB_STATIC)
 
-.PHONY: all clean run
+distclean: clean
+	@echo "Removendo artefatos adicionais (frames, vídeos, logs, temporários)"
+	@rm -f *.mp4
+	@rm -f commands.*
+	@find frames -type f -name 'frame_*.png' -delete 2>/dev/null || true
+	@rm -f .DS_Store
+	@echo "distclean concluído."
+
+.PHONY: all clean run library
