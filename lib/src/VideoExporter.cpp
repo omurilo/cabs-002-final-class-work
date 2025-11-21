@@ -1,4 +1,6 @@
 #include "VideoExporter.hpp"
+#include "FFmpegCommandBuilder.hpp"
+#include "SystemProcessManager.hpp"
 #include <filesystem>
 #include <vector>
 #include <string>
@@ -9,102 +11,104 @@
 #include <sys/wait.h>
 #include <signal.h>
 
-namespace fs = std::filesystem;
-
 namespace ds {
 
-static std::string buildFFmpegCmd(const std::string& framesDir,
-                                  const std::string& outputFile,
-                                  const VideoConfig& cfg) {
-    fs::path pattern = fs::path(framesDir) / "frame_%04d.png";
-    std::ostringstream cmd;
-    cmd << "ffmpeg -y -hide_banner -loglevel error -progress pipe:1";
-    cmd << " -framerate " << cfg.fps;
-    cmd << " -i \"" << pattern.string() << "\"";
-    if (cfg.forcedSize) {
-        cmd << " -s " << cfg.forcedSize->first << "x" << cfg.forcedSize->second;
+VideoExporter::VideoExporter() 
+    : m_commandBuilder(std::make_unique<FFmpegCommandBuilder>()),
+      m_processManager(std::make_unique<SystemProcessManager>()) {
+}
+
+VideoExporter::VideoExporter(std::unique_ptr<IVideoCommandBuilder> commandBuilder, 
+                            std::unique_ptr<IProcessManager> processManager)
+    : m_commandBuilder(std::move(commandBuilder)), 
+      m_processManager(std::move(processManager)) {
+}
+
+std::unique_ptr<VideoExporter> VideoExporter::createDefault() {
+    return std::make_unique<VideoExporter>();
+}
+
+bool VideoExporter::exportVideo(const std::vector<std::string>& frames, 
+                                const VideoConfig& config, const std::string& output) {
+    if (frames.empty()) {
+        std::cerr << "[VideoExporter] Error: No frames provided\n";
+        return false;
     }
-    if (!cfg.bitrate.empty()) {
-        cmd << " -b:v " << cfg.bitrate;
+    
+    if (output.empty()) {
+        std::cerr << "[VideoExporter] Error: No output path provided\n";
+        return false;
     }
-    cmd << " -c:v " << cfg.codec;
-    cmd << " -pix_fmt " << cfg.pixFmt;
-    cmd << " -preset " << cfg.preset;
-    cmd << " -crf " << cfg.crf;
-    cmd << " \"" << outputFile << "\"";
-    return cmd.str();
+
+    std::filesystem::path firstFramePath(frames[0]);
+    std::string framesDir = firstFramePath.parent_path().string();
+    
+    if (framesDir.empty()) {
+        framesDir = ".";
+    }
+
+    std::string cmd = m_commandBuilder->buildCommand(framesDir, output, config);
+    
+    std::cout << "[VideoExporter] Executing: " << cmd << std::endl;
+    
+    bool success = m_processManager->execute(cmd, 
+        [](const std::string& processOutput) {
+            if (!processOutput.empty()) {
+                std::cout << "[FFmpeg] " << processOutput << std::endl;
+            }
+        },
+        []() { return false; },
+        nullptr);
+    
+    if (!success) {
+        std::cerr << "[VideoExporter] Error: Process failed\n";
+        return false;
+    }
+    
+    // Verificar se arquivo de saída foi criado
+    if (!std::filesystem::exists(output)) {
+        std::cerr << "[VideoExporter] Error: Output file not created: " << output << std::endl;
+        return false;
+    }
+    
+    std::cout << "[VideoExporter] Success: Video exported to " << output << std::endl;
+    return true;
 }
 
 bool VideoExporter::exportFromPNGs(const std::string& framesDir,
-                                   const std::string& outputFile,
-                                   const VideoConfig& cfg,
+                                   const std::string& outputMp4,
+                                   const VideoConfig& config,
                                    EventFn onEvent,
                                    CancelFn shouldCancel,
-                                   int* outPid) const {
-    if (onEvent) onEvent({ExportEventType::Start,0,0,0.0,"Iniciando ffmpeg"});
-    std::string cmd = buildFFmpegCmd(framesDir, outputFile, cfg);
+                                   int* outPid) {
+    if (framesDir.empty() || outputMp4.empty()) {
+    if (onEvent) onEvent(ExportEvent{ExportEventType::Error, 0, 0, 0.0, "Diretorio ou arquivo de saída vazio"});
+        return false;
+    }
+    if (onEvent) onEvent(ExportEvent{ExportEventType::Start, 0, 0, 0.0, "Iniciando export"});
+    std::string cmd = m_commandBuilder->buildCommand(framesDir, outputMp4, config);
+    if (onEvent) onEvent(ExportEvent{ExportEventType::Progress, 0, 0, 0.0, "Chamada ffmpeg"});
+    bool ok = m_processManager->execute(cmd,
+        [&](const std::string& line){
+            if (shouldCancel && shouldCancel()) {
+                if (onEvent) onEvent(ExportEvent{ExportEventType::Cancelled, 0, 0, 0.0, "Cancelado"});
+                return;
+            }
 
-    int pipefd[2];
-    if (pipe(pipefd) != 0) {
-        if (onEvent) onEvent({ExportEventType::Error,0,0,0.0,"Falha pipe"});
+            if (line.find("frame=") != std::string::npos) {
+                if (onEvent) onEvent(ExportEvent{ExportEventType::Progress, 0, 0, 0.0, line});
+            }
+        }, shouldCancel, outPid);
+    if (!ok) {
+    if (onEvent) onEvent(ExportEvent{ExportEventType::Error, 0, 0, 0.0, "ffmpeg falhou"});
         return false;
     }
-    pid_t pid = fork();
-    if (pid < 0) {
-        if (onEvent) onEvent({ExportEventType::Error,0,0,0.0,"Falha fork"});
+
+    if (!std::filesystem::exists(outputMp4)) {
+    if (onEvent) onEvent(ExportEvent{ExportEventType::Error, 0, 0, 0.0, "Arquivo não criado"});
         return false;
     }
-    if (pid == 0) {
-        close(pipefd[0]);
-        dup2(pipefd[1], STDOUT_FILENO);
-        dup2(pipefd[1], STDERR_FILENO);
-        execl("/bin/sh","sh","-c",cmd.c_str(),(char*)nullptr);
-        _exit(127);
-    }
-    // parent
-    close(pipefd[1]);
-    if (outPid) *outPid = pid;
-    FILE* stream = fdopen(pipefd[0], "r");
-    if (!stream) {
-        if (onEvent) onEvent({ExportEventType::Error,0,0,0.0,"fdopen falhou"});
-        return false;
-    }
-    char buf[256];
-    size_t frameCounter = 0;
-    while (true) {
-        if (shouldCancel && shouldCancel()) {
-            kill(pid, SIGTERM);
-            if (onEvent) onEvent({ExportEventType::Cancelled,frameCounter,0,0.0,"Cancelado"});
-            break;
-        }
-        if (fgets(buf, sizeof(buf), stream) == nullptr) {
-            if (feof(stream)) break; else continue;
-        }
-        std::string line(buf);
-        while (!line.empty() && (line.back()=='\n' || line.back()=='\r')) line.pop_back();
-        if (line.rfind("frame=",0)==0) {
-            auto val = line.substr(6);
-            try { frameCounter = (size_t)std::stoul(val); } catch(...) {}
-            if (onEvent) onEvent({ExportEventType::Progress,frameCounter,0,0.0,line});
-        } else if (line == "progress=end") {
-            if (onEvent) onEvent({ExportEventType::Completed,frameCounter,0,100.0,"Finalizado"});
-        } else {
-            if (onEvent) onEvent({ExportEventType::Progress,frameCounter,0,0.0,line});
-        }
-    }
-    fclose(stream);
-    int status=0; waitpid(pid,&status,0);
-    if (WIFEXITED(status) && WEXITSTATUS(status)==0) {
-        if (onEvent) onEvent({ExportEventType::Completed,frameCounter,0,100.0,"OK"});
-        return true;
-    }
-    if (onEvent) onEvent({ExportEventType::Error,frameCounter,0,0.0,"ffmpeg falhou"});
-    return false;
+    if (onEvent) onEvent(ExportEvent{ExportEventType::Completed, 0, 0, 0.0, "Concluido"});
+    return true;
 }
-
-bool VideoExporter::cancelProcess(int pid) {
-    if (pid <= 0) return false;
-    return kill(pid, SIGTERM) == 0;
-}
-
 } // namespace ds

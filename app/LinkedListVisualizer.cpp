@@ -1,4 +1,5 @@
 #include "LinkedListVisualizer.h"
+#include "AppStyle.h"
 #include <iterator>
 #include <string>
 #include <algorithm>
@@ -9,7 +10,7 @@ LinkedListVisualizer::LinkedListVisualizer(sf::Font& font, const sf::Vector2f& p
 
 sf::Vector2f LinkedListVisualizer::getPositionForIndex(size_t i) {
     if (m_layout) return m_layout->positionForIndex(i, m_position);
-    return { m_position.x + i * (NODE_WIDTH + PTR_WIDTH + SPACING), m_position.y }; // fallback
+    return { m_position.x + i * (NODE_WIDTH + PTR_WIDTH + SPACING), m_position.y };
 }
 
 void LinkedListVisualizer::reflow(float windowWidth, float panelWidth) {
@@ -29,7 +30,7 @@ void LinkedListVisualizer::reflow(float windowWidth, float panelWidth) {
         stride = stride * 0.9f;
     }
 
-    float rowHeight = NODE_HEIGHT + 70.f;
+    float rowHeight = NODE_HEIGHT + 85.f;
     for (size_t i = 0; i < m_nodes.size(); ++i) {
         int row = static_cast<int>(i / maxCols);
         int col = static_cast<int>(i % maxCols);
@@ -60,6 +61,21 @@ void LinkedListVisualizer::insertAt(int value, size_t index) {
     });
 }
 
+void LinkedListVisualizer::push_front_string(const std::string& label) {
+    std::string desc = "Lista: PushFront(\"" + label + "\")";
+    enqueueOperation(desc, [this, label]() {
+        buildPushFrontStringAnimation(label);
+    });
+}
+
+void LinkedListVisualizer::insertAtString(const std::string& label, size_t index) {
+    if (index == 0) { push_front_string(label); return; }
+    std::string desc = "Lista: InsertAt(\"" + label + "\"," + std::to_string(index) + ")";
+    enqueueOperation(desc, [this, label, index]() {
+        buildInsertAtStringAnimation(label, index);
+    });
+}
+
 void LinkedListVisualizer::clearAnimated() {
     std::string desc = "Lista: Clear()";
     enqueueOperation(desc, [this]() {
@@ -75,6 +91,17 @@ void LinkedListVisualizer::buildPushFrontAnimation(int value) {
     size_t oldSize = m_nodes.size();
     sf::Vector2f startPos = { getPositionForIndex(0).x, m_position.y - NODE_HEIGHT * 2 };
     enqueueAnimation(std::make_unique<DataInsertStep>(value, 0, startPos));
+    enqueueAnimation(std::make_unique<MoveStep>(0, getPositionForIndex(0)));
+    for (size_t i = 1; i <= oldSize; ++i) {
+        enqueueAnimation(std::make_unique<MoveStep>(i, getPositionForIndex(i)));
+    }
+    enqueueAnimation(std::make_unique<ColorStep>(0, sf::Color::Yellow));
+}
+
+void LinkedListVisualizer::buildPushFrontStringAnimation(const std::string& label) {
+    size_t oldSize = m_nodes.size();
+    sf::Vector2f startPos = { getPositionForIndex(0).x, m_position.y - NODE_HEIGHT * 2 };
+    enqueueAnimation(std::make_unique<DataInsertStep>(0, 0, startPos, label));
     enqueueAnimation(std::make_unique<MoveStep>(0, getPositionForIndex(0)));
     for (size_t i = 1; i <= oldSize; ++i) {
         enqueueAnimation(std::make_unique<MoveStep>(i, getPositionForIndex(i)));
@@ -106,13 +133,25 @@ void LinkedListVisualizer::buildInsertAtAnimation(int value, size_t index) {
     enqueueAnimation(std::make_unique<ColorStep>(index, sf::Color::Yellow));
 }
 
+void LinkedListVisualizer::buildInsertAtStringAnimation(const std::string& label, size_t index) {
+    if (index > m_nodes.size()) return;
+    size_t oldSize = m_nodes.size();
+    sf::Vector2f startPos = { getPositionForIndex(index).x, m_position.y - NODE_HEIGHT * 2 };
+    enqueueAnimation(std::make_unique<DataInsertStep>(0, index, startPos, label));
+    enqueueAnimation(std::make_unique<MoveStep>(index, getPositionForIndex(index)));
+    for (size_t i = index + 1; i <= oldSize; ++i) {
+        enqueueAnimation(std::make_unique<MoveStep>(i, getPositionForIndex(i)));
+    }
+    enqueueAnimation(std::make_unique<ColorStep>(index, sf::Color::Yellow));
+}
+
 void LinkedListVisualizer::draw(sf::RenderWindow& window) const {
-    sf::Text title("std::list (Linked List)", m_font, 20);
+    sf::Text title("std::list (Linked List)", m_font, appstyle::SUBTITLE);
     title.setPosition(m_position.x, m_position.y - 40);
     title.setFillColor(sf::Color::White);
     window.draw(title);
 
-    sf::Text headText("head", m_font, 18);
+    sf::Text headText("head", m_font, appstyle::PANEL_TEXT);
     headText.setFillColor(sf::Color::Yellow);
 
     if (!m_nodes.empty()) {
@@ -136,7 +175,8 @@ void LinkedListVisualizer::draw(sf::RenderWindow& window) const {
         ptrBox.setOutlineColor(node.color);
         ptrBox.setOutlineThickness(1.f);
 
-    sf::Text valueText(std::to_string(node.value), m_font, FONT_SIZE);
+    std::string display = node.label.empty() ? std::to_string(node.value) : node.label;
+    sf::Text valueText(display, m_font, appstyle::LIST_NODE_VALUE);
         valueText.setFillColor(sf::Color::White);
         sf::FloatRect textBounds = valueText.getLocalBounds();
         valueText.setOrigin(textBounds.left + textBounds.width / 2.f, textBounds.top + textBounds.height / 2.f);
@@ -157,7 +197,7 @@ void LinkedListVisualizer::draw(sf::RenderWindow& window) const {
                 window.draw(line, 2, sf::Lines);
             } else {
                 float startX = node.position.x + NODE_WIDTH + PTR_WIDTH / 2.f;
-                float midX = startX + 30.f; // avanço horizontal
+                float midX = startX + 30.f;
                 float midY = next_node.position.y + NODE_HEIGHT / 2.f;
                 sf::Vertex elbow[] = {
                     sf::Vertex(sf::Vector2f(startX, node.position.y + NODE_HEIGHT / 2.f), sf::Color::Red),
@@ -168,7 +208,7 @@ void LinkedListVisualizer::draw(sf::RenderWindow& window) const {
                 window.draw(elbow, 4, sf::LineStrip);
             }
         } else {
-            sf::Text nullText("NULL", m_font, 16);
+            sf::Text nullText("NULL", m_font, appstyle::LIST_NODE_NULL);
             nullText.setFillColor(sf::Color::Red);
             nullText.setPosition(node.position.x + NODE_WIDTH + PTR_WIDTH + 5, node.position.y + NODE_HEIGHT / 3.f);
             window.draw(nullText);

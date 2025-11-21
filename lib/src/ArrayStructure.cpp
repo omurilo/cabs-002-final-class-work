@@ -25,4 +25,12 @@ void ArrayStructure::resize(size_t newCap) {
     notify();
 }
 
+const std::vector<int>& ArrayStructure::getState() const {
+    return m_elements;
+}
+
+size_t ArrayStructure::size() const {
+    return m_elements.size();
+}
+
 } // namespace ds

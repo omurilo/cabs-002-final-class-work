@@ -7,10 +7,10 @@ namespace ds {
 
 class ReplayEngine {
 public:
-    using InsertCb = std::function<void(const RecordedCommand&)>;
-    using RemoveCb = std::function<void(const RecordedCommand&)>;
-    using HighlightCb = std::function<void(const RecordedCommand&)>;
-    using ClearCb = std::function<void(const RecordedCommand&)>;
+    using InsertCb = std::function<void(const CommandData&)>;
+    using RemoveCb = std::function<void(const CommandData&)>;
+    using HighlightCb = std::function<void(const CommandData&)>;
+    using ClearCb = std::function<void(const CommandData&)>;
 
     bool loadJSON(const std::string& path);
     void reset();
@@ -24,7 +24,7 @@ public:
     void onClear(ClearCb cb) { m_onClear = std::move(cb); }
 
 private:
-    std::vector<RecordedCommand> m_commands;
+    std::vector<CommandData> m_commands;
     size_t m_cursor = 0;
     double m_elapsed = 0.0;
     double m_speed = 1.0;

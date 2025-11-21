@@ -1,10 +1,14 @@
 #include <SFML/Graphics.hpp>
+#include "AppStyle.h"
 #include "VectorVisualizer.h"
 #include "LinkedListVisualizer.h"
+#include "CommandPanelView.h"
 #include "Command.h"
 #include "StructureFactory.h"
-#include "StructureController.h"
-#include "../lib/include/datastructures.hpp"
+#include "VectorController.h"
+#include "LinkedListController.h"
+#include "DataStructureModel.h"
+#include "datastructures.hpp"
 #include <iostream>
 #include <fstream>
 #include <ctime>
@@ -19,53 +23,6 @@
 #include <mutex>
 #include <sstream>
 #include <iomanip>
-
-void drawCommandPanel(sf::RenderWindow& window, sf::Font& font, 
-                      const VectorVisualizer& vecViz, const LinkedListVisualizer& listViz) {
-    
-    const float panelWidth = 280.f;
-    const float panelX = window.getSize().x - panelWidth;
-
-    sf::RectangleShape panel(sf::Vector2f(panelWidth, window.getSize().y));
-    panel.setPosition(panelX, 0);
-    panel.setFillColor(sf::Color(20, 20, 20, 200));
-    window.draw(panel);
-
-    sf::Text title("Fila de Comandos Pendentes", font, 20);
-    title.setFillColor(sf::Color::White);
-    title.setPosition(panelX + 15, 15);
-    window.draw(title);
-
-    const auto& vecQueue = vecViz.getOperationQueue();
-    const auto& listQueue = listViz.getOperationQueue();
-
-    std::vector<std::string> allCommands;
-    for(const auto& cmd : vecQueue) allCommands.push_back(cmd.description);
-    for(const auto& cmd : listQueue) allCommands.push_back(cmd.description);
-    
-    sf::Text commandText("", font, 16);
-    commandText.setFillColor(sf::Color(220, 220, 220));
-    float currentY = 60.f;
-
-    if (allCommands.empty()) {
-        commandText.setString("(vazio)");
-        commandText.setPosition(panelX + 15, currentY);
-        window.draw(commandText);
-    } else {
-        for(const auto& desc : allCommands) {
-            commandText.setString(desc);
-            commandText.setPosition(panelX + 15, currentY);
-            window.draw(commandText);
-            currentY += 25.f;
-        }
-    }
-
-    sf::Text stats("Pendentes: " + std::to_string(allCommands.size()), font, 14);
-    stats.setFillColor(sf::Color(180,180,180));
-    stats.setPosition(panelX + 15, window.getSize().y - 30.f);
-    window.draw(stats);
-}
-
 
 static const std::vector<std::pair<std::string, std::string>> COMMAND_HELP = {
     {"I", "Inserir elemento aleatorio no Vetor"},
@@ -99,36 +56,56 @@ int main() {
               << DS_VERSION_MAJOR << '.' << DS_VERSION_MINOR << '.' << DS_VERSION_PATCH << ")" << std::endl;
 
     sf::Font font;
-    if (!font.loadFromFile("arial.ttf")) {
-        std::cerr << "Erro ao carregar fonte\n";
-        return -1;
+    if (!std::filesystem::exists("arial.ttf") && std::filesystem::exists("app/arial.ttf")) {
+        std::error_code ec; std::filesystem::copy_file("app/arial.ttf", "arial.ttf", std::filesystem::copy_options::overwrite_existing, ec);
+    }
+    auto tryLoadFont = [&](const std::vector<std::string>& paths){
+        for (const auto& p : paths) {
+            if (font.loadFromFile(p)) {
+                std::cout << "[Font] Carregada: " << p << "\n"; return true; }
+        }
+        return false;
+    };
+    if (!tryLoadFont({
+        "./arial.ttf",
+        "arial.ttf",
+        "app/arial.ttf",
+        "/System/Library/Fonts/Supplemental/Arial.ttf",
+        "/Library/Fonts/Arial.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"
+    })) {
+    std::cerr << "[Font] Nenhuma fonte encontrada. Renderizacao de texto desativada.\n";
     }
     
-    sf::Text titleText("Visualizador de Estruturas de Dados", font, 24);
+    sf::Text titleText("Visualizador de Estruturas de Dados", font, appstyle::TITLE);
     sf::Text instructionsText;
 
     VectorVisualizer vecViz(font, {50.f, 150.f});
     LinkedListVisualizer listViz(font, {50.f, 400.f});
+    CommandPanelView commandPanel; commandPanel.addView(&vecViz); commandPanel.addView(&listViz);
 
     ds::ArrayListStructure coreArrayList;
     ds::LinkedListStructure coreLinkedList;
     ds::RandomProvider rng;
 
     StructureFactory factory;
-    auto arrayListStructure = factory.create("array_list");
-    auto linkedListStructure = factory.create("linked_list");
-
-    StructureController controllerArray(std::move(arrayListStructure), &vecViz, &rng);
-    StructureController controllerList(std::move(linkedListStructure), &listViz, &rng);
-    controllerArray.connect();
-    controllerList.connect();
-
-    sf::Clock clock;
+    auto vectorImpl = factory.create("array_list");
+    auto listImpl   = factory.create("linked_list");
+    DataStructureModel vectorModel(std::move(vectorImpl));
+    DataStructureModel listModel(std::move(listImpl));
 
     ds::CommandRecorder recorder;
+    vectorModel.attach([&vecViz](const std::vector<int>& st){ vecViz.syncState(st); });
+    listModel.attach([&listViz](const std::vector<int>& st){ listViz.syncState(st); });
+
+    VectorController vectorController(&vectorModel, &vecViz, &rng, &recorder, "vector");
+    LinkedListController listController(&listModel, &listViz, &rng, &recorder, "list");
+
+    sf::Clock clock;
     bool showLimitStatus = false;
-    const std::string recordFile = "commands.log";
     const std::string recordJSON = "commands.json";
+    bool autoReplayLoaded = false;
 
     bool timedReplayActive = false;
     size_t timedReplayIndex = 0;
@@ -200,13 +177,13 @@ int main() {
             }
 
             if (event.type == sf::Event::KeyPressed) {
-                if (event.key.code == sf::Keyboard::I) controllerArray.executeAndRecord("insert", &recorder, "vector");
-                else if (event.key.code == sf::Keyboard::R) controllerArray.executeAndRecord("remove", &recorder, "vector");
-                else if (event.key.code == sf::Keyboard::A) controllerList.executeAndRecord("insert", &recorder, "list");
-                else if (event.key.code == sf::Keyboard::D) controllerList.executeAndRecord("remove", &recorder, "list");
-                else if (event.key.code == sf::Keyboard::H) controllerArray.executeAndRecord("highlight", &recorder, "vector");
-                else if (event.key.code == sf::Keyboard::V) controllerArray.executeAndRecord("clear", &recorder, "vector");
-                else if (event.key.code == sf::Keyboard::B) controllerList.executeAndRecord("clear", &recorder, "list");
+                if (event.key.code == sf::Keyboard::I) vectorController.insert();
+                else if (event.key.code == sf::Keyboard::R) vectorController.remove();
+                else if (event.key.code == sf::Keyboard::A) listController.insert();
+                else if (event.key.code == sf::Keyboard::D) listController.remove();
+                else if (event.key.code == sf::Keyboard::H) vectorController.highlight();
+                else if (event.key.code == sf::Keyboard::V) vectorController.clear();
+                else if (event.key.code == sf::Keyboard::B) listController.clear();
                 else if (event.key.code == sf::Keyboard::E) {
                     if (!exportingFrames) {
                         exportingFrames = true;
@@ -279,7 +256,7 @@ int main() {
                     if (recorder.saveJSON(recordJSON)) std::cout << "[Recorder] JSON salvo em " << recordJSON << "\n";
                     pushSubtitle("Salvar JSON");
                 }
-                else if (event.key.code == sf::Keyboard::K) {
+                else if (event.key.code == sf::Keyboard::K || (!autoReplayLoaded && std::filesystem::exists(recordJSON))) {
                     if (recorder.loadJSON(recordJSON)) {
                         std::cout << "[Recorder] Replay temporal carregado de JSON...\n";
                         if (recorder.seed() && (!rng.hasSeed() || rng.seed() != recorder.seed())) {
@@ -289,6 +266,7 @@ int main() {
                         timedReplayActive = true; timedReplayIndex = 0; timedReplayClock = 0.f;
                         timedReplayPaused = false; timedReplaySpeed = 1.f;
                         pushSubtitle("Replay temporal ON");
+                        autoReplayLoaded = true;
                     }
                 }
                 else if (event.key.code == sf::Keyboard::P) {
@@ -327,6 +305,7 @@ int main() {
                 }
             }
         }
+        
     vecViz.update(dt);
     listViz.update(dt);
 
@@ -335,16 +314,33 @@ int main() {
             const auto& cmds = recorder.get();
             while (timedReplayIndex < cmds.size() && cmds[timedReplayIndex].t <= timedReplayClock) {
                 const auto& cmd = cmds[timedReplayIndex];
-                if (cmd.target == "vector") {
-                    if (cmd.op == "INSERT" && cmd.hasValue) controllerArray.insertAt(cmd.index, cmd.value);
-                    else if (cmd.op == "REMOVE") controllerArray.removeAt(cmd.index);
-                    else if (cmd.op == "HIGHLIGHT") controllerArray.highlightAt(cmd.index);
-                    pushSubtitle("Temporal:"+cmd.op+" vector");
-                } else if (cmd.target == "list") {
-                    if (cmd.op == "INSERT" && cmd.hasValue) controllerList.insertAt(cmd.index, cmd.value);
-                    else if (cmd.op == "REMOVE") controllerList.removeAt(cmd.index);
-                    else if (cmd.op == "HIGHLIGHT") controllerList.highlightAt(cmd.index);
-                    pushSubtitle("Temporal:"+cmd.op+" list");
+                try {
+                    if (cmd.target == "vector") {
+                        if (cmd.op == "INSERT" && (cmd.hasValue || cmd.hasLabel)) {
+                            if (cmd.hasLabel) {
+                                vectorController.insertAtString(cmd.index, cmd.label);
+                            } else {
+                                vectorController.insertAt(cmd.index, cmd.value);
+                            }
+                        }
+                        else if (cmd.op == "REMOVE") vectorController.removeAt(cmd.index);
+                        else if (cmd.op == "HIGHLIGHT") vectorController.highlightAt(cmd.index);
+                        pushSubtitle("Temporal:"+cmd.op+" vector");
+                    } else if (cmd.target == "list") {
+                        if (cmd.op == "INSERT" && (cmd.hasValue || cmd.hasLabel)) {
+                            if (cmd.hasLabel) {
+                                listController.insertAtString(cmd.index, cmd.label);
+                            } else {
+                                listController.insertAt(cmd.index, cmd.value);
+                            }
+                        }
+                        else if (cmd.op == "REMOVE") listController.removeAt(cmd.index);
+                        else if (cmd.op == "HIGHLIGHT") listController.highlightAt(cmd.index);
+                        pushSubtitle("Temporal:"+cmd.op+" list");
+                    }
+                } catch(const std::exception& ex) {
+                    std::cerr << "[Replay] Excecao ao aplicar comando: " << ex.what() << "\n";
+                    pushSubtitle("Erro replay");
                 }
                 timedReplayIndex++;
             }
@@ -356,7 +352,7 @@ int main() {
         }
 
     window.clear(sf::Color(30, 30, 30));
-        
+
         titleText.setPosition(window.getSize().x / 2.0f, 30.f);
         
         std::string instructionsString =
@@ -364,7 +360,7 @@ int main() {
             "[A] Adicionar na Lista  |  [D] Remover da Lista";
         instructionsText.setFont(font);
         instructionsText.setString(instructionsString);
-        instructionsText.setCharacterSize(16);
+        instructionsText.setCharacterSize(appstyle::PANEL_TEXT);
         instructionsText.setFillColor(sf::Color(200, 200, 200));
         sf::FloatRect instructionsBounds = instructionsText.getLocalBounds();
         instructionsText.setOrigin(instructionsBounds.left + instructionsBounds.width / 2.0f, instructionsBounds.top + instructionsBounds.height / 2.0f);
@@ -387,7 +383,7 @@ int main() {
     vecViz.draw(window);
     listViz.draw(window);
         
-        drawCommandPanel(window, font, vecViz, listViz);
+    commandPanel.draw(window, font);
         sf::Text recInd(recorder.isRecording()?"REC ON (G)":"REC OFF (G)", font, 14);
         recInd.setFillColor(recorder.isRecording()?sf::Color(255,80,80):sf::Color(160,160,160));
         recInd.setPosition(15.f, 15.f);

@@ -47,4 +47,12 @@ void LinkedListStructure::clear() {
     head = nullptr; m_elements.clear(); notify();
 }
 
+const std::vector<int>& LinkedListStructure::getState() const {
+    return m_elements;
+}
+
+size_t LinkedListStructure::size() const {
+    return m_elements.size();
+}
+
 } // namespace ds

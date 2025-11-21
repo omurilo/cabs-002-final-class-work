@@ -3,7 +3,8 @@
 
 namespace ds {
 struct Node {
-    int value; 
+    int value;
     Node* next = nullptr;
+    Node(int val) : value(val) {}
 };
 } // namespace ds
