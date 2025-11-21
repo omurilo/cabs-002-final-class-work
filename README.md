@@ -1,374 +1,377 @@
 # Data Structure Visualizer ![CI](https://github.com/omurilo/cabs-002-final-work/actions/workflows/ci.yml/badge.svg)
 
-Visualizador e gravador determinístico de operações em estruturas de dados em C++. Gera animações em tempo real, captura frames, exporta PNG/MP4 e permite replay fiel via comandos persistidos com seed.
+Visualizador interativo e gravador determinístico de operações em estruturas de dados implementado em C++23 + SFML. Oferece animações em tempo real, captura de frames, exportação PNG/MP4 com progresso e replay fiel via comandos persistidos com seed.
 
-## Sumário
-1. Visão Rápida
-2. Funcionalidades
-3. Arquitetura (MVC & Fluxo de Estados)
-4. Instalação / Ambiente (nix-shell opcional)
-5. Build (app, biblioteca, headless, testes)
-6. Uso Interativo (teclas)
-7. Captura & Exportação (PNG / MP4 / callbacks / cancelamento)
-8. Replay (formato JSON)
-9. API Essencial (exemplos)
-10. Limpeza e Distclean
-11. Testes & Qualidade
-12. Roadmap
-13. Contribuição
-14. Licença
+## 📋 Sumário
+1. [Visão Rápida](#1-visão-rápida)
+2. [Funcionalidades](#2-funcionalidades)
+3. [Arquitetura MVC](#3-arquitetura-mvc)
+4. [Estrutura do Projeto](#4-estrutura-do-projeto)
+5. [Instalação](#5-instalação)
+6. [Build](#6-build)
+7. [Uso Interativo](#7-uso-interativo)
+8. [Captura & Exportação](#8-captura--exportação)
+9. [Sistema de Replay](#9-sistema-de-replay)
+10. [API da Biblioteca](#10-api-da-biblioteca)
+11. [Testes](#11-testes)
+12. [Exemplos](#12-exemplos)
+13. [Contribuição](#13-contribuição)
 
-## 1. Visão Rápida
-Execute, insira/remova elementos, grave comandos, exporte vídeo e reproduza a sessão depois mantendo mesma sequência (seed armazenada).
+## 1. 🚀 Visão Rápida
+Execute o visualizador, insira/remova elementos interativamente, grave comandos, exporte vídeos e reproduza a sessão exata depois mantendo a mesma sequência (seed armazenada).
 
-## 2. Funcionalidades
-- Animação de inserção, remoção, destaque e limpeza.
-- Gravação de comandos em JSON com timestamps e seed.
-- Captura opcional de cada frame renderizado.
-- Exportação: lote de PNG ou vídeo MP4 (ffmpeg) com progresso.
-- Cancelamento de exportação (sinal ao processo ffmpeg ou interrupção do loop).
-- Replay temporal ajustável (velocidade, pause, step).
-- Random determinístico via `RandomProvider` (`setSeed()`, `hasSeed()`).
-
-## 3. Arquitetura (MVC & Fluxo de Estados)
-O aplicativo foi refatorado para um modelo explícito MVC desacoplado da biblioteca core.
-
-Componentes:
-| Papel | Arquivo / Tipo | Responsabilidade |
-|-------|-----------------|------------------|
-| Model | `DataStructureModel` (`IModel`) | Encapsula uma instância de `ds::AbstractDataStructure`, expõe operações e notifica observers com `std::vector<int>` lógico. |
-| View  | `Visualizer` (base) + `VectorVisualizer`, `LinkedListVisualizer` (`IView`) | Renderização e animações; recebe estado lógico via `syncState` e anima eventos com `animateInsert/remove/highlight/clear`. |
-| Controller | `VectorController`, `LinkedListController` (`IController`) | Converte entrada (teclas/replay) em operações: chama animação na View e atualiza Model; registra comandos se gravando. |
-| Recorder | `ds::CommandRecorder` | Persiste sequência determinística (op, target, index, value, t, seed). |
-| RNG | `ds::RandomProvider` | Garante reprodutibilidade (seed logada no JSON). |
-
-Fluxo de uma operação (ex: Inserir no vetor):
-1. Usuário pressiona `I`.
-2. `VectorController::insert()` gera índice (append) e valor (determinístico).
-3. Chama `view->animateInsert(val, idx)` para enfileirar passos visuais.
-4. Chama `model->insert(idx, val)`; se o tamanho muda, `DataStructureModel` notifica observers.
-5. Observer registrado faz `vecViz.syncState(novoEstado)` sincronizando apenas valores (estrutura visual já criada pela animação).
-6. Controller registra comando no `CommandRecorder` se em modo gravação.
-
-Replay imediato / temporal:
-- Usa `controller.insertAt/removeAt/highlightAt` (versões que não invocam RNG) mantendo coerência visual + lógica.
-
-Benefícios da refatoração:
-- Animações especializadas ficam na View; lógica de escolha de índice/valor no Controller.
-- Model permanece agnóstico de SFML/UI.
-- Substituir uma View (ex: versão headless) exige apenas outra implementação de `IView`.
-- Fácil adicionar nova estrutura: implementar `ConcreteStructure` (core), `NewStructureModel`, `NewStructureVisualizer`, `NewStructureController`.
-
-Exemplo de wiring simplificado (trecho conceitual do `main.cpp`):
-```cpp
-StructureFactory f;
-auto impl = f.create("array_list");
-DataStructureModel vectorModel(std::move(impl));
-VectorVisualizer vecViz(font, {50.f,150.f});
-ds::CommandRecorder recorder; ds::RandomProvider rng;
-vectorModel.attach([&vecViz](const auto& st){ vecViz.syncState(st); });
-VectorController controller(&vectorModel, &vecViz, &rng, &recorder, "vector");
-// Tecla I:
-controller.insert();
-```
-
-Regras de sincronização:
-- Inserções/remoções: View trata animação de ajuste estrutural; `syncState` apenas atualiza valores quando contagem coincide.
-- Limpeza: View anima clear e Model dispara notify → estado vazio. Mesmo que já esteja vazia, um comando CLEAR é registrado (replay preserva intenção do usuário).
-
-## 4. Instalação / Ambiente
-Preferencial: `nix-shell` para dependências (SFML, ffmpeg, GoogleTest). Fora dele o Makefile avisa mas compila se libs estiverem instaladas.
-
-Entrar:
 ```bash
+# Entrar no ambiente (recomendado)
 nix-shell
-```
-Sair: `exit`.
 
-Dependências manuais (macOS/Homebrew):
+# Compilar e executar
+make run
+
+# Usar teclas I/R (vetor) ou A/D (lista) para inserir/remover
+# Pressionar G para gravar, J para salvar, K para replay
+```
+
+## 2. ⚡ Funcionalidades
+- **Visualização Interativa**: Animações fluidas de inserção, remoção, destaque e limpeza
+- **Gravação Determinística**: Comandos em JSON com timestamps e seed para reprodutibilidade total
+- **Captura de Frames**: Cada frame renderizado pode ser capturado opcionalmente
+- **Exportação Avançada**: Lote de PNG ou vídeo MP4 (ffmpeg) com progresso em tempo real
+- **Cancelamento Inteligente**: Interrupção segura de processos de exportação
+- **Replay Temporal**: Velocidade ajustável, pause, step-by-step
+- **RNG Determinístico**: `RandomProvider` com controle de seed para reprodutibilidade
+- **Estruturas Suportadas**: Array/Vector e Linked List com visualizações especializadas
+
+## 3. 🏗️ Arquitetura MVC
+O projeto implementa uma arquitetura Model-View-Controller (MVC) robusta e desacoplada:
+
+### Componentes Principais
+| Componente | Localização | Responsabilidade |
+|------------|-------------|------------------|
+| **Models** | `app/*Model.h` | Estado lógico das estruturas de dados |
+| **Views** | `app/*Visualizer.*` | Renderização SFML e animações |
+| **Controllers** | `app/*Controller.*` | Lógica de controle e coordenação MVC |
+| **Core Library** | `lib/` | Estruturas de dados e utilitários (namespace `ds`) |
+
+### Fluxo de uma Operação
+```
+Entrada (tecla) → Controller → View.animate* → Model.update → Observer → View.syncState
+                      ↓
+                 CommandRecorder (se gravando)
+```
+
+### Arquivos-Chave da Aplicação
+- `ApplicationController.*`: Orquestrador principal da aplicação
+- `VectorController.*` / `LinkedListController.*`: Controllers específicos
+- `VectorVisualizer.*` / `LinkedListVisualizer.*`: Views com animações
+- `DataStructureModel.h`: Model genérico para estruturas de dados
+- `ExportStatusModel.h`: Gerenciamento de estado de exportação
+- `HUDModel.h` / `HUDView.h`: Interface de usuário e informações
+## 4. 📁 Estrutura do Projeto
+```
+cabs-002-final-work/
+├── app/                           # Aplicação principal (MVC + SFML)
+│   ├── *Controller.*              # Controllers MVC
+│   ├── *Visualizer.*              # Views com animações SFML
+│   ├── *Model.h                   # Models de estado
+│   ├── AnimationStep.h            # Sistema de animação
+│   ├── ApplicationController.*    # Orquestrador principal
+│   ├── main.cpp                   # Ponto de entrada
+│   ├── commands_help.hpp          # Mapeamento de teclas
+│   └── examples/                  # Exemplos headless
+├── lib/                           # Biblioteca core (namespace ds)
+│   ├── include/                   # Headers públicos
+│   │   ├── *Structure.hpp         # Estruturas de dados concretas
+│   │   ├── CommandRecorder.hpp    # Sistema de gravação
+│   │   ├── ReplayEngine.hpp       # Sistema de replay
+│   │   ├── VideoExporter.hpp      # Exportação MP4
+│   │   ├── PNGWriter.hpp          # Exportação PNG
+│   │   ├── RandomProvider.hpp     # RNG determinístico
+│   │   └── datastructures.hpp     # Header umbrella
+│   ├── src/                       # Implementações
+│   └── libdatastructures.a        # Biblioteca estática (gerada)
+├── gtests/                        # Testes unitários
+├── frames/                        # Saída de imagens PNG
+├── Makefile                       # Sistema de build
+├── shell.nix                      # Ambiente Nix
+├── commands.json                  # Comandos gravados
+├── vector.mp4                     # Vídeo exportado
+└── visualizador_final            # Executável principal
+```
+
+## 5. 🔧 Instalação
+
+### Opção 1: Ambiente Nix (Recomendado)
+```bash
+# Entrar no ambiente com todas as dependências
+nix-shell
+
+# Sair do ambiente
+exit
+```
+
+### Opção 2: Instalação Manual
+**macOS (Homebrew):**
 ```bash
 brew install sfml ffmpeg pkg-config googletest
 ```
 
-## 4. Build
-Alvos:
-- `make` / `make all`: app + biblioteca.
-- `make library`: só `lib/libdatastructures.a`.
-- `make headless`: biblioteca + testes (sem binário gráfico). 
-- `make gtests`: compila e executa testes `gtests/core_tests`.
-- `make run`: executa app.
-- `make distclean`: limpa binários, frames, vídeos e artefatos.
-- `make coverage` (usa COVERAGE=1): recompila com flags de cobertura, executa testes e gera `coverage.html` (gcovr) se disponível.
+**Ubuntu/Debian:**
+```bash
+sudo apt-get install libsfml-dev ffmpeg pkg-config libgtest-dev
+```
 
-Modos adicionais:
-- Debug: `make DEBUG=1` habilita sanitizers (address, undefined) e desabilita otimizações.
-- Cobertura: `make COVERAGE=1 gtests` ou `make COVERAGE=1 coverage`.
+## 6. 🔨 Build
 
-Estrutura chave:
-- `lib/include`, `lib/src` (namespace `ds`).
-- `frames/` saída de imagens.
-- `gtests/` fontes de teste.
+### Alvos Principais
+```bash
+make                    # Compila aplicação + biblioteca
+make all               # Mesmo que make
+make library           # Apenas lib/libdatastructures.a
+make run               # Compila e executa aplicação
+make clean             # Remove objetos e executável
+make distclean         # Limpeza completa (inclui frames/vídeos)
+```
 
-## 5. Uso Interativo (Teclas)
+### Alvos de Teste
+```bash
+make gtests            # Compila e executa testes
+make headless          # Biblioteca + testes (sem GUI)
+```
+
+### Modos Especiais
+```bash
+make DEBUG=1           # Build com sanitizers e debug
+make COVERAGE=1        # Build com cobertura de código
+```
+
+### Verificação da Instalação
+```bash
+# Teste básico
+make clean && make all
+./visualizador_final
+
+# Teste completo com testes
+make gtests
+```
+
+## 7. 🎮 Uso Interativo
+
+### Controles de Estruturas de Dados
 | Tecla | Ação |
 |-------|------|
-| I/R | Inserir/remover (array list) |
-| A/D | Inserir/remover (lista encadeada) |
-| H | Destacar índice 0 |
-| F | Toggle captura de frames |
-| E | Exportar PNGs |
-| M | Exportar MP4 |
-| C | Limpar frames em memória |
-| X | Apagar PNGs |
-| J | Salvar comandos JSON |
-| K | Carregar JSON e iniciar replay |
-| P | Pause/resume replay |
-| N | Step (replay pausado) |
-| [ / ] | Velocidade replay |
-| B | Limpar lista encadeada |
-| G | Toggle gravação de comandos |
+| `I` | Inserir no vetor (array list) |
+| `R` | Remover do vetor |
+| `A` | Inserir na lista encadeada |
+| `D` | Remover da lista encadeada |
+| `H` | Destacar elemento (índice 0) |
+| `V` | Limpar vetor |
+| `B` | Limpar lista encadeada |
 
-## 6. Captura & Exportação
-Fluxo:
-1. Ativar captura (F) → `FrameStore.enable(true)`.
-2. Cada frame: extrair imagem da janela SFML para `RawImage` → armazenar.
-3. PNG: iterar sobre frames e chamar `PNGWriter::write(...)`.
-4. Vídeo: `VideoExporter` invoca ffmpeg com base em `VideoConfig` (fps, codec, crf, bitrate opcional).
+### Controles de Captura e Exportação
+| Tecla | Ação |
+|-------|------|
+| `F` | Toggle captura de frames |
+| `C` | Limpar frames em memória |
+| `X` | Apagar arquivos PNG do disco |
+| `E` | Exportar frames como PNG |
+| `M` | Exportar como MP4 |
 
-Callbacks `VideoExporter` (passar em construção):
-- `onStart()`
-- `onFrameSaved(index, total)`
-- `onProgress(percent)`
-- `onCompleted(path)`
-- `onCancelled()`
-- `onError(message)`
+### Controles de Gravação e Replay
+| Tecla | Ação |
+|-------|------|
+| `G` | Toggle gravação de comandos |
+| `J` | Salvar comandos em JSON |
+| `K` | Carregar JSON e iniciar replay |
+| `P` | Pause/resume replay |
+| `N` | Step (próximo comando quando pausado) |
+| `[` / `]` | Diminuir/aumentar velocidade do replay |
 
-Cancelamento: sinal termina processo ffmpeg ou quebra loop de escrita antes de iniciar ffmpeg.
+### Interface
+| Tecla | Ação |
+|-------|------|
+| `ESC` | Fechar aplicação |
+| `?` | Toggle painel de ajuda |
 
-## 7. Replay
-Formato JSON atual (v1) gerado por `CommandRecorder::saveJSON`:
+## 8. 📹 Captura & Exportação
+
+### Fluxo de Captura
+1. **Ativar Captura**: Pressione `F` para ativar `FrameStore`
+2. **Operações**: Cada frame é automaticamente capturado durante animações
+3. **Exportar**: Use `E` (PNG) ou `M` (MP4)
+
+### Configuração de Vídeo
+```cpp
+ds::VideoConfig config;
+config.fps = 30;           // Frames por segundo
+config.codec = "libx264";  // Codec de vídeo
+config.crf = 23;           // Qualidade (0-51, menor = melhor)
+config.preset = "medium";  // Velocidade de encoding
+```
+
+### Callbacks de Progresso
+```cpp
+ds::VideoExporter exporter;
+exporter.onProgress([](int current, int total, double percent) {
+    std::cout << "Progresso: " << current << "/" << total 
+              << " (" << percent << "%)" << std::endl;
+});
+```
+
+### Cancelamento
+- **Durante Exportação**: A aplicação monitora sinais para cancelar ffmpeg
+- **Programático**: Use callbacks `shouldCancel()` para interrupção controlada
+## 9. 🎬 Sistema de Replay
+
+### Formato JSON
+O sistema grava comandos em formato JSON estruturado:
 ```json
 {
-  "META": {"version": "1.0.0", "seed": 123456789},
+  "META": {
+    "version": "1.0.0",
+    "seed": 123456789,
+    "timestamp": "2025-11-08T10:30:00Z"
+  },
   "commands": [
-    {"operation": "INSERT", "target": "vector", "index": 0, "timestamp": 12, "value": 42},
-    {"operation": "REMOVE", "target": "vector", "index": 0, "timestamp": 48}
+    {
+      "operation": "INSERT",
+      "target": "vector",
+      "index": 0,
+      "value": 42,
+      "timestamp": 12
+    },
+    {
+      "operation": "REMOVE", 
+      "target": "vector",
+      "index": 0,
+      "timestamp": 48
+    }
   ]
 }
 ```
-Observações:
-- `timestamp` em milissegundos relativo ao início da gravação.
-- `seed` garante reprodutibilidade (mesmo fluxo de valores aleatórios).
-- Campos opcionais: `value` só aparece se a operação possui valor (INSERT).
-- A lista é ordenada automaticamente durante replay; se estiver fora de ordem, `ReplayEngine` reordena.
 
-O replay carrega o JSON, normaliza tempos (primeiro timestamp vira t0) e avança conforme o tempo acumulado (play, pause, step, velocidade).
+### Características do Replay
+- **Determinístico**: O `seed` garante que operações aleatórias sejam reproduzidas exatamente
+- **Temporal**: `timestamp` em milissegundos permite replay em tempo real
+- **Ordenação Automática**: O `ReplayEngine` reordena comandos se necessário
+- **Controle de Velocidade**: Ajuste da velocidade de reprodução em tempo real
 
-## 8. API Essencial (Pseudo)
+### Uso do Replay
 ```cpp
-auto ds = std::make_unique<ds::ArrayListStructure>(32);
-ds->insert(10);
-recorder.recordInsert("vector", 0, 10);
-ds::RandomProvider::setSeed(1234);
-// Export vídeo
-ds::VideoConfig cfg; cfg.fps = 30; cfg.codec = "libx264"; cfg.crf = 23;
-ds::VideoExporter exp(cfg, callbacks);
-exp.run();
+ds::ReplayEngine replay;
+replay.loadJSON("session.json");
+replay.setSpeed(2.0);  // 2x mais rápido
+replay.play();
 ```
 
-Exemplo completo headless em `examples/record_and_replay.cpp`:
-```bash
-g++ -std=c++23 -Ilib/include examples/record_and_replay.cpp lib/libdatastructures.a -o record_replay
-./record_replay
-```
+## 10. 📚 API da Biblioteca
 
-### 8.1 API da Biblioteca (Detalhada)
-
-#### Estruturas de Dados
-Base: `ds::AbstractDataStructure`
-- Métodos obrigatórios: `insert(index,value)`, `remove(index)`, `access(index) -> optional<int>`, `clear()`.
-- Estado atual: `getState()` retorna `const std::vector<int>&` (snapshot interno).
-- Erros / limites: índices fora do intervalo devem ser tratados pelas concretas (não lançar exceções silenciosamente). Use verificação antes de chamar.
-
-Concretas:
-- `ds::ArrayStructure(capacidade)`: tamanho máximo inicial; `resize(newCap)` para alterar capacidade. Inserção desloca elementos à direita, remoção compacta.
-- `ds::ArrayListStructure(capacidade)`: operação semelhante, com lógica interna de shift (`shiftElements`). Melhor para cenários de expansão controlada.
-- `ds::LinkedListStructure`: inserção/remoção por travessia até índice; `clear()` desaloca nós.
-
-Uso comum:
+### Estruturas de Dados Base
 ```cpp
-ds::ArrayStructure arr(16);
-arr.insert(0, 42);
-if (auto v = arr.access(0)) { /* ... */ }
-arr.remove(0);
+// Interface base
+class AbstractDataStructure {
+public:
+    virtual bool insert(size_t index, int value) = 0;
+    virtual bool remove(size_t index) = 0;
+    virtual std::optional<int> access(size_t index) const = 0;
+    virtual void clear() = 0;
+    virtual size_t size() const = 0;
+    virtual const std::vector<int>& getState() const = 0;
+};
 ```
 
-#### Gravação de Comandos
-`ds::CommandRecorder`
-- Ciclo simplificado: `toggle()` para iniciar/encerrar sessão de gravação. (Anteriormente havia `start()/stop()`).
-- Formato único: `saveJSON(path)` / `loadJSON(path)` gerando objeto raiz com `META` + `commands`.
-- Seed: gerada automaticamente ao iniciar (`toggle()`); persistida em `META.seed`.
-- Cada comando: `{ operation, target, index, value?, timestamp(ms) }`.
-
-Exemplo:
+### Implementações Disponíveis
 ```cpp
-recorder.toggle(); // inicia (seed auto)
-recorder.record("INSERT", "vector", 0, 99);
-recorder.record("REMOVE", "vector", 0, std::nullopt);
-recorder.toggle(); // encerra
-recorder.saveJSON("commands.json");
+// Array com capacidade fixa
+ds::ArrayStructure array(32);
+array.insert(0, 42);
+
+// Array list dinâmico  
+ds::ArrayListStructure list(16);
+list.insert(list.size(), 99);
+
+// Lista encadeada
+ds::LinkedListStructure linkedList;
+linkedList.insert(0, 123);
 ```
 
-#### Replay
-`ds::ReplayEngine`
-- Carregar: `loadJSON(path)`.
-- Controle: `setSpeed(fator)`, `pause(bool)`, `advance(dtSegundos)`.
-- Callbacks: `onInsert`, `onRemove`, `onHighlight`, `onClear` recebem `CommandData` (timestamp em ms).
-- Algoritmo: acumula `m_elapsed` (segundos), converte `timestamp` (ms → s) e dispara eventos cujo tempo normalizado <= `m_elapsed`.
-
-Loop típico:
+### Sistema de Gravação
 ```cpp
-ReplayEngine re;
-re.loadJSON("commands.json");
-re.onInsert([](const ds::CommandData& cmd){ /* aplicar no modelo */ });
-// game loop
-double dt = computeDelta();
-re.advance(dt);
+ds::CommandRecorder recorder;
+recorder.setSeed(1234);           // Para reprodutibilidade
+recorder.start();
+recorder.record("INSERT", "vector", 0, 42);
+recorder.record("REMOVE", "vector", 0);
+recorder.stop();
+recorder.saveJSON("session.json");
 ```
 
-#### Random Determinístico
-`ds::RandomProvider`
-- Inicialização: `RandomProvider(seedOpcional)`.
-- Métodos: `reseed(seed)`, `setSeed(seed)`, `hasSeed()`, `nextInt(min,max)`.
-- Uso em replay: restaurar seed antes de ações que dependam de aleatoriedade.
-
-#### Captura de Frames
-`ds::FrameStore`
-- Ativar: `enable(true)`; capturar: `capture(lambdaQueRetornaRawImage)`.
-- Configurar modo circular: `setCircular(true)` para sobrescrever frames antigos ao atingir `max()`.
-- Ajustar limite: `setMax(novoLimite)`.
-- Acesso: `frames()` retorna vetor de `RawImage`.
-
-Exemplo:
+### Sistema de Exportação
 ```cpp
-frameStore.enable(true);
-frameStore.capture([&]{ return grabWindowRaw(); });
-for (auto& img : frameStore.frames()) { /* exportar */ }
+// PNG Export
+ds::PNGWriter writer;
+std::vector<ds::FrameData> frames = /* capturados */;
+writer.save(frames, "output/", "frame_");
+
+// MP4 Export  
+ds::VideoExporter exporter;
+ds::VideoConfig config{30, "libx264", 23};
+exporter.exportFromPNGs("frames/", "output.mp4", config);
 ```
 
-#### Exportação de PNG
-`ds::PNGWriter`
-- Função estática típica (conforme implementação) `write(path, RawImage)`.
-- Requisitos: `RawImage.pixels.size() == width * height * 4`.
-- Erros: retornar boolean ou lançar exceção (dependendo da implementação concreta; tratar falha de I/O).
-
-#### Exportação de Vídeo
-`ds::VideoExporter`
-- Método: `exportFromPNGs(framesDir, outputFile, cfg, onEvent, shouldCancel, &pid)`. 
-- Eventos (via `onEvent`): Start, FrameSaved, Progress, Completed, Cancelled, Error.
-- Cancelar: `VideoExporter::cancelProcess(pid)`.
-- `VideoConfig`: fps, codec (`libx264`), crf (qualidade), bitrate opcional.
-
-Padrão:
+### Provider de Aleatoriedade
 ```cpp
-ds::VideoConfig vc; vc.fps = 30; vc.codec = "libx264"; vc.crf = 23;
-int pid = -1;
-bool ok = ds::VideoExporter().exportFromPNGs("frames/vector", "vector.mp4", vc,
-  [](const ds::ExportEvent& ev){ /* log/progresso */ },
-  []{ return false; }, &pid);
+// Configurar seed global
+ds::RandomProvider::setSeed(12345);
+
+// Usar gerador
+auto rng = ds::RandomProvider::create(true);  // com seed
+int randomValue = rng->nextInt(1, 100);
 ```
 
-#### Eventos de Exportação
-`ds::ExportEvent` (estrutura típica): tipo (enum) + dados (índice, total, mensagem, progresso). Tratar `Error` exibindo mensagem amigável; evitar prosseguir em caso de falha.
+## 11. 🧪 Testes
 
-#### Convenções de Erro
-- Retornos booleanos indicam sucesso/falha silenciosa: checar sempre após I/O (`saveJSON`, `loadJSON`, `exportFromPNGs`).
-- Valores opcionais (`std::optional<int>`) evitam exceções em acesso inválido: teste `if (opt)` antes de uso.
-- Cancelamento: `shouldCancel()` deve ser rápido (sem bloqueio). Em loops longos, consultar a cada frame.
-
-#### Threading / Performance
-Atualmente operações são síncronas; para não bloquear UI em export de vídeo, criar thread separada chamando `exportFromPNGs`. Garantir que diretório de frames não seja modificado durante export.
-
-#### Integração com UI (SFML)
-- Conversão da janela para `RawImage`: (`window.capture()` → extrair pixels RGBA) e devolver via lambda em `FrameStore.capture`.
-- Replay: dentro do loop principal, chamar `advance(dt)` e reagir via callbacks aplicando mudanças visuais.
-
-#### Ordem Recomendada de Uso
-1. Inicializar estruturas e recorder (opcional seed).
-2. Ativar captura se desejado.
-3. Executar operações (inserir/remover/destacar) gravando comandos.
-4. Salvar gravação (JSON) e exportar imagem/vídeo.
-5. Para reproduzir: carregar JSON, restaurar seed, loop com `advance(dt)`.
-
----
-Esses detalhes descrevem o contrato público para integrar a biblioteca em outras aplicações. Ajuste interno (renome de campos, novas estruturas) deve manter assinaturas principais para evitar quebra de compatibilidade.
-
-## 9. Limpeza
-`make distclean` remove binários, diretórios `frames/`, vídeos e artefatos de testes. Use antes de criar release limpa.
-
-## 10. Testes & Qualidade
-GoogleTest cobre: estruturas, gravação/carregamento JSON, seed round-trip, replay, exportação e determinismo. Rodar:
+### Executando Testes
 ```bash
-make gtests   # compila e executa automaticamente
+# Executar todos os testes
+make gtests
+
+# Teste com cobertura
+make COVERAGE=1 gtests
+
+# Teste em modo debug
+make DEBUG=1 gtests
 ```
-Compilar sem executar:
-```bash
-make core_gtests
-```
-Cobertura:
-```bash
-make COVERAGE=1 coverage
-```
-Gera relatório console (se `gcovr` instalado) e arquivo `coverage.html` com detalhes (branch + linha). Abra no navegador:
-```bash
-open coverage.html  # macOS
-```
-Se estiver em CI, publique o artefato (ex: GitHub Actions upload). 
 
-Possíveis avisos/erros:
-- "gcovr não instalado": instale via nix ou `pip install gcovr`.
-- Erros `GCOV produced ... could not infer working directory`: podem ocorrer em alguns objetos dependendo da versão do `gcovr` + `clang`. Podem ser ignorados adicionando `--gcov-ignore-errors=no_working_dir_found` se necessário (editar alvo no Makefile).
-Uso avançado com LLVM:
-```bash
-llvm-cov gcov gtests/core_tests
+### Estrutura de Testes
 ```
-Para gerar perfil mais completo (ex: `llvm-cov show`), seria necessário compilar com `-fprofile-instr-generate -fcoverage-mapping` e usar `llvm-profdata merge`. Mantido simples aqui.
+gtests/
+├── CoreLibraryGTests.cpp      # Testes da biblioteca core
+├── DataStructureGTests.cpp    # Testes das estruturas de dados
+├── CommandRecorderGTests.cpp  # Testes de gravação
+├── EdgeCaseGTests.cpp         # Casos extremos
+└── ControllerGTests.cpp       # Testes dos controllers MVC
+```
 
-Nova lógica de cobertura:
-- Detecta automaticamente `llvm-cov`; caso ausente usa `gcov` padrão.
-- Root do relatório restrito a `lib/src` (foco na biblioteca).
-- Gera também `coverage.xml` (XML Cobertura) e `coverage.json` para consumo em CI.
-- Exclui arquivos não relevantes (ex: visualizadores UI e `stb_image_write`).
-- Para ignorar erros de diretório: já aplicado `--gcov-ignore-errors no_working_dir_found`.
-Debug + sanitizers:
+### Executável de Testes
 ```bash
-make DEBUG=1 gtests          # AddressSanitizer por padrão
-make ubsan                   # UndefinedBehaviorSanitizer filtrado
-make asan                    # Força rebuild modo ASan
-```
-Após build debug, pode rodar manualmente:
-```bash
+# Executar manualmente
 ./gtests/core_tests
+
+# Com filtros específicos
+./gtests/core_tests --gtest_filter="*ArrayStructure*"
 ```
 
-## 11. Roadmap
-- Compressão/Buffer circular de frames.
-- Parâmetros ffmpeg avançados (preset, bitrate adaptativo).
-- Modo headless puro para automação CI de vídeos.
-- Filtros de replay por tipo de operação.
-- Relatório HTML resumindo sessão (seed, tempo, nº comandos).
+## 12. 💡 Exemplos
 
-## 12. Contribuição
-1. Abrir issue detalhando motivação.
-2. Branch `feature/<nome>`.
-3. Adicionar testes relevantes.
-4. Garantir build dentro de `nix-shell`.
-5. PR objetivo (sem dumps extensos de logs).
+### Exemplo Headless Básico
+```cpp
+#include <datastructures.hpp>
+#include <CommandRecorder.hpp>
+#include <iostream>
 
-## 13. Licença
-Definir (ex: MIT). Enquanto não definido: uso interno/educacional.
-
----
-Projeto focado em estudo visual de estruturas com reprodutibilidade e export multimídia. Documentação estruturada para consulta rápida.
+int main() {
+    auto ds = std::make_unique<ds::ArrayListStructure>(16);
+    ds::CommandRecorder recorder;
+    
 
 
