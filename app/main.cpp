@@ -27,7 +27,7 @@ int main() {
     sf::RenderWindow window(sf::VideoMode(1400, 800), "Visualizador Animado de Estruturas de Dados");
     window.setFramerateLimit(60);
 
-    std::cout << "[Startup] Biblioteca core versão " << ds::version() << " (" 
+    std::cout << "[Startup] Biblioteca core versão " << ds::version() << " ("
               << DS_VERSION_MAJOR << '.' << DS_VERSION_MINOR << '.' << DS_VERSION_PATCH << ")" << std::endl;
 
     sf::Font font;
@@ -41,23 +41,15 @@ int main() {
         }
         return false;
     };
-    if (!tryLoadFont({
-        "./arial.ttf",
-        "arial.ttf",
-        "app/arial.ttf",
-        "/System/Library/Fonts/Supplemental/Arial.ttf",
-        "/Library/Fonts/Arial.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"
-    })) {
-    std::cerr << "[Font] Nenhuma fonte encontrada. Renderizacao de texto desativada.\n";
+    if (!tryLoadFont({"./arial.ttf","arial.ttf","app/arial.ttf","/System/Library/Fonts/Supplemental/Arial.ttf","/Library/Fonts/Arial.ttf","/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf","/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"})) {
+        std::cerr << "[Font] Nenhuma fonte encontrada. Renderizacao de texto desativada.\n";
     }
-    
+
     sf::Text titleText("Visualizador de Estruturas de Dados", font, appstyle::TITLE);
     sf::Text instructionsText;
 
-    VectorVisualizer vecViz(font, {50.f, 150.f});
-    LinkedListVisualizer listViz(font, {50.f, 400.f});
+    VectorVisualizer vecViz(font, {50.f, 300.f});
+    LinkedListVisualizer listViz(font, {50.f, 550.f});
     CommandPanelView commandPanel; commandPanel.addView(&vecViz); commandPanel.addView(&listViz);
 
     ds::ArrayListStructure coreArrayList;
@@ -87,7 +79,6 @@ int main() {
 
     sf::Clock clock;
     bool showLimitStatus = false;
-
     SubtitleController subtitleController;
     auto pushSubtitle = [&subtitleController](const std::string& t){ subtitleController.add(t); };
     ReplayController replayController;
@@ -160,7 +151,7 @@ int main() {
                 inputController.handleKey(event.key.code);
             }
         }
-        
+
     vecViz.update(dt);
     listViz.update(dt);
     replayController.update(dt);
@@ -174,6 +165,7 @@ int main() {
     auto measureHudLine = [&](const std::string& text, unsigned size){
         sf::Text t(text, font, size); sf::FloatRect b = t.getLocalBounds(); hudMaxWidth = std::max(hudMaxWidth, b.width); return t; };
     auto pushHudLine = [&](const std::string& text, unsigned size, sf::Color c){ sf::Text t = measureHudLine(text, size); t.setFillColor(c); t.setPosition(hudStartX + 8.f, hudY); hudTexts.push_back(t); hudY += size * 1.15f; };
+
     pushHudLine(recorder.isRecording()?"REC ON (G)":"REC OFF (G)", appstyle::HUD_MEDIUM, recorder.isRecording()?sf::Color(255,80,80):sf::Color(200,200,200));
     pushHudLine(vecViz.isCaptureEnabled()?"CAPTURA ON (F)":"CAPTURA OFF (F)", appstyle::HUD_MEDIUM, vecViz.isCaptureEnabled()?sf::Color(80,220,80):sf::Color(180,180,180));
     if (showLimitStatus) { pushHudLine("Limite="+std::to_string(vecViz.getCaptureLimit())+" (T)", appstyle::HUD_SMALL, sf::Color(180,255,180)); showLimitStatus=false; }
@@ -181,6 +173,7 @@ int main() {
     const auto &es = exportController.status();
     if (es.exportingFrames) { pushHudLine("Export PNG: " + std::to_string(es.framesCurrent) + "/" + std::to_string(es.framesTotal), appstyle::HUD_SMALL, sf::Color(255,180,80)); }
     if (es.exportingVideo) { pushHudLine("Export MP4: " + es.videoProgressLine, appstyle::HUD_SMALL, sf::Color(255,200,120)); }
+
 
     float panelHeight = hudY - 14.f + 10.f;
     sf::RectangleShape hudBg(sf::Vector2f(hudMaxWidth + 40.f, panelHeight));
@@ -190,6 +183,7 @@ int main() {
     hudBg.setOutlineColor(sf::Color(70,70,70,180));
     window.draw(hudBg);
     for (auto &t : hudTexts) window.draw(t);
+
     if (es.exportingFrames && es.framesTotal>0) {
         float barW = hudMaxWidth + 8.f; float barH = 10.f; float barX = hudStartX + 8.f; float barY = hudBg.getPosition().y + hudBg.getSize().y - 18.f;
         sf::RectangleShape bg(sf::Vector2f(barW, barH)); bg.setPosition(barX, barY); bg.setFillColor(sf::Color(50,50,50)); window.draw(bg);
@@ -197,38 +191,57 @@ int main() {
         sf::RectangleShape fg(sf::Vector2f(barW*pct, barH)); fg.setPosition(barX, barY); fg.setFillColor(sf::Color(100,200,100)); window.draw(fg);
     }
 
-    const float hudBottom = hudBg.getPosition().y + hudBg.getSize().y;
-        titleText.setPosition(window.getSize().x / 2.0f, hudBottom + 20.f);
+
         std::string instructionsString =
-            "[I] Inserir Vetor | [R] Remover Vetor | [H] Highlight Vetor\n"
+            "[I] Inserir Vetor | [R] Remover Vetor | [V] Limpar Vetor\n"
             "[A] Inserir Lista | [D] Remover Lista | [B] Limpar Lista";
         instructionsText.setFont(font);
         instructionsText.setString(instructionsString);
         instructionsText.setCharacterSize(appstyle::PANEL_TEXT);
         instructionsText.setFillColor(sf::Color(200, 200, 200));
-        sf::FloatRect instructionsBounds = instructionsText.getLocalBounds();
-        instructionsText.setOrigin(instructionsBounds.left + instructionsBounds.width / 2.0f, instructionsBounds.top + instructionsBounds.height / 2.0f);
-    instructionsText.setPosition(window.getSize().x / 2.0f, hudBottom + 60.f);
-        
-    window.draw(titleText);
-    window.draw(instructionsText);
 
-    helpButton.setPosition(hudBg.getPosition().x + 6.f, hudBottom + 12.f);
-    window.draw(helpButton);
+        auto layoutOverlay = [&](){
+            const float hudBottom = hudBg.getPosition().y + hudBg.getSize().y;
+            const float gapAfterHud = 10.f;
+            const float gapAfterTitle = 40.f;
+            float centerX = window.getSize().x * 0.5f;
+
+
+            sf::FloatRect tb = titleText.getLocalBounds();
+            titleText.setOrigin(tb.left + tb.width / 2.f, tb.top + tb.height / 2.f);
+            float titleY = hudBottom + gapAfterHud;
+            titleText.setPosition(centerX, titleY);
+
+
+            sf::FloatRect ib = instructionsText.getLocalBounds();
+            instructionsText.setOrigin(ib.left + ib.width / 2.f, ib.top + ib.height / 2.f);
+            float instructionsY = titleY + tb.height + gapAfterTitle;
+            instructionsText.setPosition(centerX, instructionsY);
+
+
+            helpButton.setPosition(hudBg.getPosition().x + 6.f, hudBottom + 12.f);
+        };
+
+        layoutOverlay();
+
+        window.draw(titleText);
+        window.draw(instructionsText);
+        window.draw(helpButton);
     sf::Text helpButtonText("Ajuda", font, appstyle::HUD_MEDIUM);
     helpButtonText.setFillColor(sf::Color::White);
     sf::FloatRect hb = helpButtonText.getLocalBounds();
     helpButtonText.setOrigin(hb.left + hb.width / 2.f, hb.top + hb.height / 2.f);
     helpButtonText.setPosition(helpButton.getPosition().x + helpButton.getSize().x / 2.f,
-                   helpButton.getPosition().y + helpButton.getSize().y / 2.f - 2.f);
+                   helpButton.getPosition().y + helpButton.getSize().y / 2.f + 5.f);
     window.draw(helpButtonText);
 
     vecViz.reflow(static_cast<float>(window.getSize().x));
     listViz.reflow(static_cast<float>(window.getSize().x));
     vecViz.draw(window);
     listViz.draw(window);
-        
+
     commandPanel.draw(window, font);
+
     subtitleController.update(dt);
         float baseY = window.getSize().y - 30.f;
     sf::Text subT("", font, appstyle::HUD_MEDIUM);
@@ -243,7 +256,7 @@ int main() {
             subT.setPosition(window.getSize().x/2.f, baseY - line*22.f);
             window.draw(subT);
         }
-        
+
     vecViz.captureFrame(window);
     listViz.captureFrame(window);
 

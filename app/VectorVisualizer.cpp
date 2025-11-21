@@ -101,7 +101,7 @@ void VectorVisualizer::reflow(float windowWidth, float panelWidth) {
 
 void VectorVisualizer::draw(sf::RenderWindow& window) const {
     sf::Text title("std::vector (Array List)", m_font, appstyle::SUBTITLE);
-    title.setPosition(m_position.x, m_position.y - 40);
+    title.setPosition(m_position.x, m_position.y - 80);
     title.setFillColor(sf::Color::White);
     window.draw(title);
 

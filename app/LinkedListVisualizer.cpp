@@ -147,7 +147,7 @@ void LinkedListVisualizer::buildInsertAtStringAnimation(const std::string& label
 
 void LinkedListVisualizer::draw(sf::RenderWindow& window) const {
     sf::Text title("std::list (Linked List)", m_font, appstyle::SUBTITLE);
-    title.setPosition(m_position.x, m_position.y - 40);
+    title.setPosition(m_position.x, m_position.y - 80);
     title.setFillColor(sf::Color::White);
     window.draw(title);
 
@@ -159,10 +159,10 @@ void LinkedListVisualizer::draw(sf::RenderWindow& window) const {
         headText.setPosition(m_nodes.front().position.x + NODE_WIDTH / 2.f - headBounds.width / 2.f, m_nodes.front().position.y - 30.f);
         window.draw(headText);
     }
-    
+
     for (size_t i = 0; i < m_nodes.size(); ++i) {
         const auto& node = m_nodes[i];
-        
+
         sf::RectangleShape dataBox(sf::Vector2f(NODE_WIDTH, NODE_HEIGHT));
         dataBox.setPosition(node.position);
         dataBox.setFillColor(sf::Color(20, 20, 80));
@@ -181,7 +181,7 @@ void LinkedListVisualizer::draw(sf::RenderWindow& window) const {
         sf::FloatRect textBounds = valueText.getLocalBounds();
         valueText.setOrigin(textBounds.left + textBounds.width / 2.f, textBounds.top + textBounds.height / 2.f);
         valueText.setPosition(node.position.x + NODE_WIDTH / 2.f, node.position.y + NODE_HEIGHT / 2.f);
-        
+
     window.draw(dataBox);
         window.draw(ptrBox);
         window.draw(valueText);
