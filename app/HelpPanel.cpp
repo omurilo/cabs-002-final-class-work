@@ -3,6 +3,7 @@
 #include <vector>
 #include <utility>
 #include <string>
+#include <memory>
 
 static const std::vector<std::pair<std::string, std::string>> COMMAND_HELP = {
     {"I", "Inserir elemento aleatorio no Vetor"},
@@ -30,12 +31,12 @@ static const std::vector<std::pair<std::string, std::string>> COMMAND_HELP = {
 void HelpPanel::showHelpWindow(sf::Font& font) {
     static bool showHelpWindow = false;
     static std::unique_ptr<sf::RenderWindow> helpWindow;
-    
+
     if (!showHelpWindow) {
         showHelpWindow = true;
         helpWindow = std::make_unique<sf::RenderWindow>(sf::VideoMode(600, 700), "Comandos Disponiveis", sf::Style::Titlebar | sf::Style::Close);
     }
-    
+
     if (helpWindow && helpWindow->isOpen()) {
         sf::Event hevent;
         while (helpWindow->pollEvent(hevent)) {
@@ -44,11 +45,11 @@ void HelpPanel::showHelpWindow(sf::Font& font) {
                 showHelpWindow = false;
             }
             if (hevent.type == sf::Event::KeyPressed && hevent.key.code == sf::Keyboard::Escape) {
-                helpWindow->close(); 
+                helpWindow->close();
                 showHelpWindow = false;
             }
         }
-        
+
         helpWindow->clear(sf::Color(25, 25, 25));
         sf::Text header("Lista de Comandos", font, 24);
         header.setFillColor(sf::Color(240,240,240));
