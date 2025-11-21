@@ -10,7 +10,7 @@ namespace ds {
         
         ReplayData() = default;
         
-
+        
         void calculateDuration() {
             if (commands.empty()) {
                 totalDuration = 0.0;
@@ -18,7 +18,8 @@ namespace ds {
             }
             totalDuration = commands.back().timestamp.count();
         }
-
+        
+        
         void sortByTimestamp() {
             std::sort(commands.begin(), commands.end(), 
                      [](const CommandData& a, const CommandData& b) {

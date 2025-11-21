@@ -12,4 +12,4 @@ public:
     virtual bool hasSeed() const = 0;
 };
 
-} // namespace ds
+} 

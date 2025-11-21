@@ -1,9 +1,10 @@
 #pragma once
 #include <SFML/Graphics.hpp>
 #include "IView.h"
-#include "VisualizerBase.h"
+#include "VisualizerBase.h" 
 #include <vector>
 #include <string>
+
 
 class CommandPanelView {
 public:
@@ -52,5 +53,5 @@ public:
     }
 private:
     float m_width;
-    std::vector<const IVisualizer*> m_visualizers;
+    std::vector<const IVisualizer*> m_visualizers; 
 };

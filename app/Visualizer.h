@@ -4,35 +4,54 @@
 #include "IView.h"
 #include <SFML/Graphics.hpp>
 #include <vector>
-#include "datastructures.hpp" // acesso FrameManager, PNGWriter, VideoExporter (umbrella header publico)
+#include "datastructures.hpp" 
 
-// Visualizer agora também implementa IView (View genérica). Classes concretas podem sobrescrever animações especializadas.
+
 class Visualizer : public VisualizerBase, public IView {
 public:
     void setStrategy(std::unique_ptr<AnimationStrategy> s) { m_strategy = std::move(s); }
-    // Bridge override to satisfy both IVisualizer (via VisualizerBase) and IView contracts
+    
     void update(float dt) override { VisualizerBase::update(dt); }
-    // IView unificado: recebe DataState (valores + labels opcionais)
+    
     void syncState(const DataState& state) override {
-        if (state.values) {
-            render(*state.values);
+        if (!state.values) return;
+        
+        const auto& values = *state.values;
+        size_t newSize = values.size();
+        
+        if (m_nodes.size() < newSize) {
+            m_nodes.resize(newSize);
+        } else if (m_nodes.size() > newSize) {
+            m_nodes.resize(newSize);
         }
-        if (state.labels && state.labels->size() == m_nodes.size()) {
-            for (size_t i = 0; i < state.labels->size(); ++i) {
-                m_nodes[i].label = (*state.labels)[i];
+        
+        std::vector<int> intValues;
+        intValues.reserve(newSize);
+        
+        for (size_t i = 0; i < newSize && i < values.size(); ++i) {
+            if (std::holds_alternative<int>(values[i])) {
+                m_nodes[i].value = std::get<int>(values[i]);
+                m_nodes[i].label.clear();
+                intValues.push_back(std::get<int>(values[i]));
+            } else {
+                m_nodes[i].value = 0;
+                m_nodes[i].label = std::get<std::string>(values[i]);
+                intValues.push_back(0);
             }
         }
+        
+        render(intValues);
     }
-    void animateInsert(int value, size_t index) override;   // fallback genérico (cores simples) se não sobrescrito
+    void animateInsert(int value, size_t index) override;   
     void animateInsertString(const std::string& value, size_t index) override {
-        (void)value; // value usado via labels em syncState; silencia aviso de parâmetro não utilizado
+        (void)value; 
         animateInsert(0, index);
     }
-    void animateRemove(size_t index) override;               // fallback
+    void animateRemove(size_t index) override;               
     void animateHighlight(size_t index) override { highlight(index); }
-    void animateClear() override;                            // fallback
+    void animateClear() override;                            
 
-    // Ciclo específico / utilidades
+    
     void render(const std::vector<int>& state);
     void highlight(size_t index);
     void exportFrames(const std::string& dirPath, const std::string& prefix="frame");
@@ -57,7 +76,7 @@ public:
     bool isIdle() const { return m_animationQueue.empty(); }
     void queueOperation(const std::string& description, std::function<void()> action) { enqueueOperation(description, std::move(action)); }
 protected:
-    std::unique_ptr<AnimationStrategy> m_strategy = nullptr; // desativado para evitar duplicação
+    std::unique_ptr<AnimationStrategy> m_strategy = nullptr; 
     ds::FrameManager m_frameStore{900};
 };
 

@@ -3,72 +3,102 @@
 #include <string>
 #include <thread>
 #include <functional>
-#include "datastructures.hpp"
-#include "Visualizer.h"
+#include "datastructures.hpp" 
+#include "Visualizer.h" 
+#include "ExportStatusModel.h"
+
 
 class ExportController {
 public:
-    struct Status {
-        bool exportingFrames = false;
-        bool exportingVideo = false;
-        size_t framesCurrent = 0;
-        size_t framesTotal = 0;
-        bool videoDone = false;
-        bool framesCancelRequested = false;
-        bool videoCancelRequested = false;
-        int currentVideoPid = -1;
-        std::string videoProgressLine;
-    };
-
     using SubtitleFn = std::function<void(const std::string&)>;
 
     explicit ExportController(SubtitleFn push) : m_push(std::move(push)) {}
+    
+    void update(ExportStatusModel& statusModel) {
+        
+        const auto status = statusModel.getStatus();
+        
+        
+        if (status.framesCancelRequested && !m_framesCancelRequested) {
+            m_framesCancelRequested = true;
+        }
+        if (status.videoCancelRequested && !m_videoCancelRequested) {
+            m_videoCancelRequested = true;
+        }
+    }
 
-    void startPNG(Visualizer* viz, const std::string& dir, const std::string& prefix) {
-        if (m_status.exportingFrames) return;
-        m_status.exportingFrames = true;
-        m_status.framesCurrent = 0; m_status.framesTotal = 0; m_status.framesCancelRequested = false;
+    void startPNG(ExportStatusModel& statusModel, Visualizer* viz, const std::string& dir, const std::string& prefix) {
+        if (statusModel.getStatus().exportingFrames) return;
+        
+        statusModel.setFrameExport(true, 0, 0);
         m_push("Export PNG iniciada");
-        std::thread([this, viz, dir, prefix]{
-            viz->exportFramesWithProgress(dir, prefix, [&](const ds::ExportEvent& ev){
+        m_framesCancelRequested = false;
+        
+        std::thread([this, &statusModel, viz, dir, prefix]{
+            viz->exportFramesWithProgress(dir, prefix, [&statusModel](const ds::ExportEvent& ev){
                 switch(ev.type) {
-                    case ds::ExportEventType::Start: m_status.framesCurrent=0; m_status.framesTotal=ev.total; break;
-                    case ds::ExportEventType::FrameSaved: m_status.framesCurrent=ev.current; m_status.framesTotal=ev.total; break;
-                    case ds::ExportEventType::Completed: m_push("PNG concluido"); m_status.exportingFrames=false; break;
-                    case ds::ExportEventType::Cancelled: m_push("PNG cancelado"); m_status.exportingFrames=false; break;
-                    case ds::ExportEventType::Error: m_push("Erro PNG"); break;
+                    case ds::ExportEventType::Start: 
+                        statusModel.setFrameExport(true, 0, ev.total); 
+                        break;
+                    case ds::ExportEventType::FrameSaved: 
+                        statusModel.setFrameExport(true, ev.current, ev.total); 
+                        break;
+                    case ds::ExportEventType::Completed: 
+                        statusModel.setFrameExport(false); 
+                        break;
+                    case ds::ExportEventType::Cancelled: 
+                        statusModel.setFrameExport(false); 
+                        break;
+                    case ds::ExportEventType::Error: 
+                        statusModel.setFrameExport(false); 
+                        break;
                     default: break;
                 }
-            }, [this](){ return m_status.framesCancelRequested; });
+            }, [this, &statusModel](){ return statusModel.isFrameCancelRequested() || m_framesCancelRequested; });
         }).detach();
     }
 
-    void startMP4(Visualizer* viz, const std::string& frameDir, const std::string& outName, const ds::VideoConfig& cfg) {
-        if (m_status.exportingVideo) return;
-        m_status.exportingVideo = true; m_status.videoDone=false; m_status.videoCancelRequested=false; m_status.videoProgressLine.clear();
+    void startMP4(ExportStatusModel& statusModel, Visualizer* viz, const std::string& frameDir, const std::string& outName, const ds::VideoConfig& cfg) {
+        if (statusModel.getStatus().exportingVideo) return;
+        
+        statusModel.setVideoExport(true, "Iniciando...", false);
         m_push("Export MP4 iniciada");
-        std::thread([this, viz, frameDir, outName, cfg]{
-            viz->exportAsMP4WithProgress(frameDir, outName, cfg, [&](const ds::ExportEvent& ev){
+        m_videoCancelRequested = false;
+        
+        std::thread([this, &statusModel, viz, frameDir, outName, cfg]{
+            int videoPid = -1;
+            viz->exportAsMP4WithProgress(frameDir, outName, cfg, [&statusModel](const ds::ExportEvent& ev){
                 if (ev.type == ds::ExportEventType::Progress) {
-                    m_status.videoProgressLine = ev.message;
+                    statusModel.setVideoExport(true, ev.message, false);
                 } else if (ev.type == ds::ExportEventType::Completed) {
-                    m_push("MP4 concluido"); m_status.videoDone=true; m_status.exportingVideo=false; m_status.videoProgressLine = "Concluido";
+                    statusModel.setVideoExport(false, "Concluido", true);
                 } else if (ev.type == ds::ExportEventType::Cancelled) {
-                    m_push("MP4 cancelado"); m_status.videoDone=true; m_status.exportingVideo=false; m_status.videoProgressLine = "Cancelado";
+                    statusModel.setVideoExport(false, "Cancelado", true);
                 } else if (ev.type == ds::ExportEventType::Error) {
-                    m_push("Erro MP4"); m_status.videoDone=true; m_status.exportingVideo=false; m_status.videoProgressLine = "Erro";
+                    statusModel.setVideoExport(false, "Erro", true);
                 } else if (ev.type == ds::ExportEventType::Start) {
-                    m_status.videoProgressLine = "Iniciando ffmpeg";
+                    statusModel.setVideoExport(true, "Iniciando ffmpeg", false);
                 }
-            }, [this](){ return m_status.videoCancelRequested; }, &m_status.currentVideoPid);
+            }, [this, &statusModel](){ return statusModel.isVideoCancelRequested() || m_videoCancelRequested; }, &videoPid);
+            
+            if (videoPid != -1) {
+                statusModel.setVideoPid(videoPid);
+            }
         }).detach();
     }
 
-    void requestCancelVideo() { if (m_status.exportingVideo && !m_status.videoDone) { m_status.videoCancelRequested=true; m_push("Solicitado cancelamento video"); } }
-    void requestCancelFrames() { if (m_status.exportingFrames) { m_status.framesCancelRequested=true; m_push("Solicitado cancelamento PNG"); } }
+    void requestCancelVideo(ExportStatusModel& statusModel) { 
+        statusModel.requestCancelVideo();
+        m_push("Solicitado cancelamento video"); 
+    }
+    
+    void requestCancelFrames(ExportStatusModel& statusModel) { 
+        statusModel.requestCancelFrames();
+        m_push("Solicitado cancelamento PNG"); 
+    }
 
-    const Status& status() const { return m_status; }
 private:
-    Status m_status;
     SubtitleFn m_push;
+    std::atomic<bool> m_framesCancelRequested{false};
+    std::atomic<bool> m_videoCancelRequested{false};
 };

@@ -55,4 +55,4 @@ size_t LinkedListStructure::size() const {
     return m_elements.size();
 }
 
-} // namespace ds
+} 

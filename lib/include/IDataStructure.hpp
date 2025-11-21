@@ -3,6 +3,7 @@
 #include <optional>
 
 namespace ds {
+    
     class IDataStructure {
     public:
         virtual void insert(size_t index, int value) = 0;

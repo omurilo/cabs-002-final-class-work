@@ -9,8 +9,8 @@ struct ExportEvent {
     ExportEventType type;
     size_t current = 0;
     size_t total = 0;
-    double percent = 0.0;
-    std::string message;
+    double percent = 0.0; 
+    std::string message;  
 };
 
 }

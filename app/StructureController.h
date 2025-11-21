@@ -1,8 +1,9 @@
 ﻿#pragma once
 #include <memory>
 #include <string>
-#include "Visualizer.h"
+#include "Visualizer.h" 
 #include "datastructures.hpp"
+
 
 class StructureController {
 public:
@@ -16,6 +17,6 @@ public:
     void connect() { if (m_structure && m_visualizer) m_visualizer->render(m_structure->getState()); }
 private:
     std::unique_ptr<ds::AbstractDataStructure> m_structure;
-    Visualizer* m_visualizer;
+    Visualizer* m_visualizer; 
     ds::RandomProvider* m_rng = nullptr;
 };

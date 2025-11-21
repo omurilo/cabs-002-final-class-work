@@ -7,4 +7,4 @@ struct Node {
     Node* next = nullptr;
     Node(int val) : value(val) {}
 };
-} // namespace ds
+} 

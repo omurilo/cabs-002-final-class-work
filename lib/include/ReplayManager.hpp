@@ -17,11 +17,13 @@ public:
 
     ReplayManager() = default;
 
+    
     bool loadJSON(const std::string& path) {
         auto serializer = std::make_unique<JSONCommandSerializer>();
         CommandRecorder temp(std::move(serializer));
         if (!temp.load(path)) return false;
-
+        
+        
         m_data.commands = temp.getCommands();
         m_data.sortByTimestamp();
         m_data.calculateDuration();
@@ -57,11 +59,13 @@ public:
         }
     }
 
+    
     void onInsert(InsertCb cb) { m_onInsert = std::move(cb); }
     void onRemove(RemoveCb cb) { m_onRemove = std::move(cb); }
     void onHighlight(HighlightCb cb) { m_onHighlight = std::move(cb); }
     void onClear(ClearCb cb) { m_onClear = std::move(cb); }
-
+    
+    
     const ReplayData& getData() const { return m_data; }
     size_t getCurrentIndex() const { return m_cursor; }
     double getElapsedTime() const { return m_elapsed; }
@@ -69,7 +73,7 @@ public:
     bool isPaused() const { return m_paused; }
 
 private:
-    ReplayData m_data;
+    ReplayData m_data; 
     size_t m_cursor = 0;
     double m_elapsed = 0.0;
     double m_speed = 1.0;
@@ -81,4 +85,4 @@ private:
     ClearCb m_onClear;
 };
 
-} // namespace ds
+} 

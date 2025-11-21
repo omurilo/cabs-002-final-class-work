@@ -1,6 +1,6 @@
 #include "CommandRecorder.hpp"
 #include "JSONCommandSerializer.hpp"
-#include "datastructures.hpp" // for DS_VERSION_STRING
+#include "datastructures.hpp" 
 #include <algorithm>
 #include <fstream>
 #include <sstream>
@@ -21,8 +21,10 @@ void CommandRecorder::setRecording(bool r) {
     if (r == m_recording) return;
     m_recording = r;
     if (m_recording) {
+        
         m_recorded.clear();
         m_hasStart = false;
+        
         std::random_device rd; m_seed = rd();
     }
 }
@@ -70,6 +72,7 @@ bool CommandRecorder::load(const std::string& filename) {
     if (!ifs) return false;
     std::stringstream buffer; buffer << ifs.rdbuf();
     std::string content = buffer.str();
+    
     m_seed = 0;
     auto seedPos = content.find("\"seed\"");
     if (seedPos != std::string::npos) {
@@ -85,6 +88,7 @@ bool CommandRecorder::load(const std::string& filename) {
             }
         }
     }
+    
     auto cmdsKey = content.find("\"commands\"");
     if (cmdsKey == std::string::npos) return false;
     auto arrayStart = content.find('[', cmdsKey);
@@ -92,6 +96,7 @@ bool CommandRecorder::load(const std::string& filename) {
     auto arrayEnd = content.find(']', arrayStart);
     if (arrayEnd == std::string::npos) return false;
     std::string arrayBlock = content.substr(arrayStart + 1, arrayEnd - arrayStart - 1);
+    
     m_recorded.clear();
     size_t pos = 0;
     std::vector<CommandData> loaded;
@@ -117,6 +122,7 @@ bool CommandRecorder::load(const std::string& filename) {
             else if (key == "target") cmd.target = val;
             else if (key == "index") cmd.index = static_cast<size_t>(std::stoul(val));
             else if (key == "value" || key == "valueString") {
+                
                 try {
                     if (!val.empty()) {
                         size_t p = 0; bool neg = (val[0] == '-' || val[0] == '+');
@@ -124,7 +130,7 @@ bool CommandRecorder::load(const std::string& filename) {
                         bool numeric = p < val.size();
                         for (; p < val.size() && numeric; ++p) numeric = std::isdigit(static_cast<unsigned char>(val[p]));
                         if (numeric) cmd.value = std::stoi(val);
-                        else cmd.valueString = val;
+                        else cmd.valueString = val; 
                     }
                 } catch(...) { cmd.valueString = val; }
             }
@@ -147,4 +153,4 @@ bool CommandRecorder::load(const std::string& filename) {
     return true;
 }
 
-} // namespace ds
+} 

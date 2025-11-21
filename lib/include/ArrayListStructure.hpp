@@ -16,4 +16,4 @@ namespace ds {
         void shiftElements(size_t fromIndex, int dir);
         size_t m_capacity;
     };
-} // namespace ds
+} 

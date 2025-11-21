@@ -39,14 +39,14 @@ bool VideoExporter::exportVideo(const std::vector<std::string>& frames,
         std::cerr << "[VideoExporter] Error: No output path provided\n";
         return false;
     }
-
+    
     std::filesystem::path firstFramePath(frames[0]);
     std::string framesDir = firstFramePath.parent_path().string();
     
     if (framesDir.empty()) {
         framesDir = ".";
     }
-
+    
     std::string cmd = m_commandBuilder->buildCommand(framesDir, output, config);
     
     std::cout << "[VideoExporter] Executing: " << cmd << std::endl;
@@ -65,7 +65,6 @@ bool VideoExporter::exportVideo(const std::vector<std::string>& frames,
         return false;
     }
     
-    // Verificar se arquivo de saída foi criado
     if (!std::filesystem::exists(output)) {
         std::cerr << "[VideoExporter] Error: Output file not created: " << output << std::endl;
         return false;
@@ -94,7 +93,6 @@ bool VideoExporter::exportFromPNGs(const std::string& framesDir,
                 if (onEvent) onEvent(ExportEvent{ExportEventType::Cancelled, 0, 0, 0.0, "Cancelado"});
                 return;
             }
-
             if (line.find("frame=") != std::string::npos) {
                 if (onEvent) onEvent(ExportEvent{ExportEventType::Progress, 0, 0, 0.0, line});
             }
@@ -103,7 +101,6 @@ bool VideoExporter::exportFromPNGs(const std::string& framesDir,
     if (onEvent) onEvent(ExportEvent{ExportEventType::Error, 0, 0, 0.0, "ffmpeg falhou"});
         return false;
     }
-
     if (!std::filesystem::exists(outputMp4)) {
     if (onEvent) onEvent(ExportEvent{ExportEventType::Error, 0, 0, 0.0, "Arquivo não criado"});
         return false;
@@ -111,4 +108,4 @@ bool VideoExporter::exportFromPNGs(const std::string& framesDir,
     if (onEvent) onEvent(ExportEvent{ExportEventType::Completed, 0, 0, 0.0, "Concluido"});
     return true;
 }
-} // namespace ds
+} 

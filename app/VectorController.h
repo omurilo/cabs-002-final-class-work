@@ -2,7 +2,7 @@
 #include "IController.h"
 #include "IModel.h"
 #include "IView.h"
-#include "DataStructureModel.h"
+#include "DataStructureModel.h" 
 #include "datastructures.hpp"
 #include <string>
 
@@ -15,14 +15,18 @@ public:
         if (!m_model || !m_view) return;
         size_t idx = m_model->size();
         int val = m_rng? m_rng->nextInt(0,99) : (std::rand()%100);
+        
         m_view->animateInsert(val, idx);
-        m_model->insert(idx, val);
+        m_model->insert(idx, DataValue(val));
         record("INSERT", idx, val);
     }
     void insertString(const std::string& label) {
         if (!m_model || !m_view) return;
         size_t idx = m_model->size();
+        
         m_view->animateInsertString(label, idx);
+        m_view->animateInsertString(label, idx);
+        
         if (auto* concrete = dynamic_cast<DataStructureModel*>(m_model)) {
             concrete->insertString(idx, label);
         }
@@ -31,6 +35,7 @@ public:
     void remove() override {
         if (!m_model || !m_view || m_model->size()==0) return;
         size_t idx = 0;
+        
         m_view->animateRemove(idx);
         m_model->remove(idx);
         record("REMOVE", idx, std::nullopt);
@@ -43,18 +48,22 @@ public:
     }
     void clear() override {
         if (!m_model || !m_view) return;
+        
         m_view->animateClear();
         m_model->clear();
         record("CLEAR", 0, std::nullopt);
     }
 
+    
     void insertAt(size_t idx, int val) {
         if (!m_model || !m_view) return;
+        
         m_view->animateInsert(val, idx);
-        m_model->insert(idx, val);
+        m_model->insert(idx, DataValue(val));
     }
     void insertAtString(size_t idx, const std::string& label) {
         if (!m_model || !m_view) return;
+        
         m_view->animateInsertString(label, idx);
         if (auto* concrete = dynamic_cast<DataStructureModel*>(m_model)) {
             concrete->insertString(idx, label);
@@ -62,6 +71,7 @@ public:
     }
     void removeAt(size_t idx) {
         if (!m_model || !m_view || idx>=m_model->size()) return;
+        
         m_view->animateRemove(idx);
         m_model->remove(idx);
     }

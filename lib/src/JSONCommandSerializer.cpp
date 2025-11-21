@@ -35,9 +35,11 @@ bool JSONCommandSerializer::load(std::vector<CommandData>& commands, const std::
     std::string json = buffer.str();
     commands.clear();
 
+    
     auto skipWS = [&](size_t& p){ while (p < json.size() && std::isspace((unsigned char)json[p])) ++p; };
     size_t p=0; skipWS(p);
     if (p < json.size() && json[p] == '{') {
+        
         size_t commandsKey = json.find("\"commands\"", p);
         if (commandsKey != std::string::npos) {
             size_t arrStart = json.find('[', commandsKey);
@@ -48,13 +50,15 @@ bool JSONCommandSerializer::load(std::vector<CommandData>& commands, const std::
                     else if (json[arrEnd] == ']') { depth--; if (depth==0) { ++arrEnd; break; } }
                 }
                 if (depth==0) {
-                    std::string arrayText = json.substr(arrStart, arrEnd - arrStart);
-                    json = arrayText;
+                    std::string arrayText = json.substr(arrStart, arrEnd - arrStart); 
+                    
+                    json = arrayText; 
                 }
             }
         }
     }
 
+    
     enum class State { SeekArray, InArray, InObject, Key, Colon, Value, CommaOrEnd };
     State st = State::SeekArray;
     size_t i = 0; CommandData current; std::string key; bool inString = false; std::string accum;

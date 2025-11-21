@@ -2,16 +2,13 @@
 
 void ControlPanelView::showCommands(const std::vector<std::string>& commands) {
     const float panelWidth = 280.f;
-    // Posição X calculada a cada frame para se ajustar ao tamanho da janela
     const float panelX = window.getSize().x - panelWidth;
 
-    // Fundo do painel (altura acompanha a da janela)
     sf::RectangleShape panel(sf::Vector2f(panelWidth, window.getSize().y));
     panel.setPosition(panelX, 0);
     panel.setFillColor(sf::Color(20, 20, 20, 200));
     window.draw(panel);
 
-    // Título do painel
     sf::Text title("Fila de Comandos Pendentes", font, 20);
     title.setFillColor(sf::Color::White);
     title.setPosition(panelX + 15, 15);

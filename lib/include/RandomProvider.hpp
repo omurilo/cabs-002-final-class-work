@@ -8,7 +8,8 @@ namespace ds {
 class RandomProvider : public ISeedManager {
 public:
     explicit RandomProvider(uint32_t seed = 0) : m_seed(seed), m_rng(seed) {}
-
+    
+    
     int nextInt(int minInclusive, int maxInclusive) override {
         std::uniform_int_distribution<int> dist(minInclusive, maxInclusive);
         return dist(m_rng);
@@ -26,7 +27,8 @@ public:
     bool hasSeed() const override { 
         return m_seed != 0; 
     }
-
+    
+    
     void reseed(uint32_t seed) { setSeed(seed); }
     uint32_t seed() const { return getSeed(); }
     
@@ -35,4 +37,4 @@ private:
     std::mt19937 m_rng;
 };
 
-} // namespace ds
+} 

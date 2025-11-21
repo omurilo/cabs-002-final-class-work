@@ -15,8 +15,8 @@ public:
     void showProgress(float percentage) override;
     
 private:
-    sf::RenderWindow& window;
-    sf::Font& font;
-    const VectorVisualizer& vecViz;
-    const LinkedListVisualizer& listViz;
+    sf::RenderWindow& window; 
+    sf::Font& font; 
+    const VectorVisualizer& vecViz; 
+    const LinkedListVisualizer& listViz; 
 };

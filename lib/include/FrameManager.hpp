@@ -11,13 +11,14 @@ namespace ds {
 
 class FrameManager {
 public:
-    using CaptureFn = std::function<FrameData()>;
+    using CaptureFn = std::function<FrameData()>; 
     using EventFn = std::function<void(const ExportEvent&)>;
     using CancelFn = std::function<bool()>;
 
     explicit FrameManager(size_t maxFrames = 900, std::unique_ptr<IImageExporter> exporter = nullptr) 
         : m_repository(maxFrames), m_imageExporter(std::move(exporter)) {}
-
+    
+    
     void enable(bool on) { m_enabled = on; }
     bool enabled() const { return m_enabled; }
     size_t count() const { return m_repository.count(); }
@@ -36,11 +37,13 @@ public:
 
     const std::vector<FrameData>& frames() const { return m_repository.getAll(); }
 
+    
     bool exportFrame(size_t index, const std::string& path) const {
         if (!m_imageExporter || index >= m_repository.count()) return false;
         return m_imageExporter->exportFrame(m_repository.get(index), path);
     }
 
+    
     bool exportAllFrames(const std::string& basePath, const std::string& prefix = "frame_") const {
         if (!m_imageExporter) return false;
         bool allSuccess = true;
@@ -54,14 +57,15 @@ public:
         return allSuccess;
     }
 
+    
     void setImageExporter(std::unique_ptr<IImageExporter> exporter) {
         m_imageExporter = std::move(exporter);
     }
 
 private:
-    FrameRepository m_repository;
-    std::unique_ptr<IImageExporter> m_imageExporter;
+    FrameRepository m_repository; 
+    std::unique_ptr<IImageExporter> m_imageExporter; 
     bool m_enabled = false;
 };
 
-} // namespace ds
+} 

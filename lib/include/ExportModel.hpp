@@ -10,11 +10,14 @@ namespace ds {
         std::unique_ptr<IVideoExporter> m_videoExporter;
         
     public:
+        
         ExportModel();
-
+        
+        
         ExportModel(std::unique_ptr<IImageExporter> img, 
                    std::unique_ptr<IVideoExporter> vid);
 
+        
         static std::unique_ptr<ExportModel> createDefault();
 
         bool exportFrame(const FrameData& frame, const std::string& path) {

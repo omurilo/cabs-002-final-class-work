@@ -5,7 +5,7 @@
 namespace ds {
 
 bool ReplayEngine::loadJSON(const std::string& path) {
-    CommandRecorder temp;
+    CommandRecorder temp; 
     if (!temp.load(path)) return false;
     m_commands = temp.getCommands();
     std::sort(m_commands.begin(), m_commands.end(), [](const CommandData& a, const CommandData& b){ return a.timestamp < b.timestamp; });
@@ -21,7 +21,7 @@ void ReplayEngine::advance(double dt) {
     m_elapsed += dt * m_speed;
     while (m_cursor < m_commands.size()) {
         const auto& c = m_commands[m_cursor];
-        double cmdTimeSec = c.timestamp.count() / 1000.0; // converte ms -> s
+        double cmdTimeSec = c.timestamp.count() / 1000.0; 
         if (cmdTimeSec <= m_elapsed) {
             if (c.operation == "INSERT" && m_onInsert) m_onInsert(c);
             else if (c.operation == "REMOVE" && m_onRemove) m_onRemove(c);
@@ -34,4 +34,4 @@ void ReplayEngine::advance(double dt) {
     }
 }
 
-} // namespace ds
+} 

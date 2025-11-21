@@ -21,12 +21,14 @@ namespace ds {
             return false;
         }
         if (pid == 0) {
+            
             close(pipefd[0]);
             dup2(pipefd[1], STDOUT_FILENO);
             dup2(pipefd[1], STDERR_FILENO);
             execl("/bin/sh", "sh", "-c", command.c_str(), (char *) nullptr);
-            _exit(127);
+            _exit(127); 
         } else {
+            
             close(pipefd[1]);
             if (outPid) *outPid = pid;
             int status;
@@ -35,9 +37,10 @@ namespace ds {
             while (true) {
                 pid_t result = waitpid(pid, &status, WNOHANG);
                 if (result == 0) {
+                    
                     if (shouldCancel && shouldCancel()) {
                         kill(pid, SIGTERM);
-                        waitpid(pid, &status, 0);
+                        waitpid(pid, &status, 0); 
                         std::cerr << "[SystemProcessManager] Process canceled\n";
                         if (stream) fclose(stream); else close(pipefd[0]);
                         return false;
@@ -46,10 +49,11 @@ namespace ds {
                         while (fgets(buffer, sizeof(buffer), stream)) {
                             if (onOutput) onOutput(std::string(buffer));
                         }
-                        clearerr(stream);
+                        clearerr(stream); 
                     }
-                    sleep(1);
+                    sleep(1); 
                 } else if (result == pid) {
+                    
                     if (stream) {
                         while (fgets(buffer, sizeof(buffer), stream)) {
                             if (onOutput) onOutput(std::string(buffer));
@@ -76,9 +80,9 @@ namespace ds {
     bool SystemProcessManager::cancelProcess(int pid) {
         if (kill(pid, SIGTERM) == 0) {
             int status;
-            waitpid(pid, &status, 0);
+            waitpid(pid, &status, 0); 
             return true;
         }
         return false;
     }
-} // namespace ds
+} 

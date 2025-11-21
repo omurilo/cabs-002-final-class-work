@@ -124,11 +124,13 @@ static int stbi_write_png(char const *filename, int w, int h, int comp, const vo
     free(raw);
     if (!write_chunk(f,"IDAT", zdata, zlen)){ free(zdata); fclose(f); return 0; }
     free(zdata);
+    // IEND
     if (!write_chunk(f,"IEND", NULL, 0)){ fclose(f); return 0; }
     fclose(f);
     return 1;
 }
 
+// Public prototype
 extern int stbi_write_png(char const *filename, int w, int h, int comp, const void *data, int stride_in_bytes);
 
 #ifdef __cplusplus

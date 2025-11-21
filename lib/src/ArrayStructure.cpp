@@ -33,4 +33,4 @@ size_t ArrayStructure::size() const {
     return m_elements.size();
 }
 
-} // namespace ds
+} 

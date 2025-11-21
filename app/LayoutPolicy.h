@@ -2,11 +2,13 @@
 #include <SFML/Graphics.hpp>
 #include <cstddef>
 
+
 class ILayoutPolicy {
 public:
     virtual ~ILayoutPolicy() = default;
     virtual sf::Vector2f positionForIndex(std::size_t i, sf::Vector2f origin) const = 0;
 };
+
 
 class LinearLayoutPolicy : public ILayoutPolicy {
 public:
@@ -19,6 +21,7 @@ private:
     float m_boxWidth;
     float m_spacing;
 };
+
 
 class ListLayoutPolicy : public ILayoutPolicy {
 public:

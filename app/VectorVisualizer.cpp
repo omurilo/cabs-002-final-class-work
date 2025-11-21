@@ -26,7 +26,7 @@ void VectorVisualizer::clearAnimated() {
         for (size_t i = 0; i < m_nodes.size(); ++i) {
             enqueueAnimation(std::make_unique<ColorStep>(i, sf::Color(255,100,100), 0.15f));
         }
-        enqueueAnimation(std::make_unique<ClearAllStep>());
+        enqueueAnimation(std::make_unique<ClearAllStep>()); 
     });
 }
 
@@ -64,10 +64,12 @@ void VectorVisualizer::buildRemoveAnimation(size_t index) {
     enqueueAnimation(std::make_unique<ColorStep>(index, sf::Color::Red));
     sf::Vector2f targetPos = { getPositionForIndex(index).x, m_position.y - BOX_HEIGHT * 2 };
     enqueueAnimation(std::make_unique<MoveStep>(index, targetPos, 0.4f));
-    enqueueAnimation(std::make_unique<DataRemoveStep>(index));
-    for (size_t i = index; i < m_nodes.size(); ++i) {
-        enqueueAnimation(std::make_unique<MoveStep>(i, getPositionForIndex(i)));
+    
+    for (size_t i = index + 1; i < m_nodes.size(); ++i) {
+        enqueueAnimation(std::make_unique<MoveStep>(i, getPositionForIndex(i - 1)));
     }
+    
+    enqueueAnimation(std::make_unique<DataRemoveStep>(index));
 }
 
 sf::Vector2f VectorVisualizer::getPositionForIndex(size_t i) const {
@@ -76,7 +78,7 @@ sf::Vector2f VectorVisualizer::getPositionForIndex(size_t i) const {
 }
 
 void VectorVisualizer::reflow(float windowWidth, float panelWidth) {
-    if (!isIdle()) return;
+    if (!isIdle()) return; 
     bool widthChanged = (windowWidth != m_lastLayoutWidth);
     bool countChanged = (m_lastNodeCount != m_nodes.size());
     if (!widthChanged && !countChanged) return;
@@ -88,7 +90,7 @@ void VectorVisualizer::reflow(float windowWidth, float panelWidth) {
     float stride = BOX_WIDTH + SPACING;
     int maxCols = static_cast<int>(available / stride);
     if (maxCols < 1) maxCols = 1;
-    float rowHeight = BOX_HEIGHT + 80.f;
+    float rowHeight = BOX_HEIGHT + 80.f; 
 
     for (size_t i = 0; i < m_nodes.size(); ++i) {
         int row = static_cast<int>(i / maxCols);

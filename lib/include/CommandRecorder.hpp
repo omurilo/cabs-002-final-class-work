@@ -14,41 +14,48 @@ namespace ds {
     class CommandRecorder {
     public:
         struct RecordedCommand {
-            double t;
-            std::string op;
-            std::string target;
-            size_t index;
-            bool hasValue;
-            int value;
-            bool hasLabel;
-            std::string label;
+            double t;                
+            std::string op;          
+            std::string target;      
+            size_t index;            
+            bool hasValue;           
+            int value;               
+            bool hasLabel;           
+            std::string label;       
         };
     private:
-        std::unique_ptr<ICommandSerializer> m_serializer;
-        std::vector<RecordedCommand>       m_recorded;
-        bool                               m_recording = false;
-        std::chrono::steady_clock::time_point m_startTime;
+        std::unique_ptr<ICommandSerializer> m_serializer;          
+        std::vector<RecordedCommand>       m_recorded;             
+        bool                               m_recording = false;    
+        std::chrono::steady_clock::time_point m_startTime;         
         bool                               m_hasStart = false;
-        unsigned int                       m_seed = 0;
+        unsigned int                       m_seed = 0;             
     public:
+        
         CommandRecorder(std::unique_ptr<ICommandSerializer> serializer);
         CommandRecorder();
 
+        
         void toggle();
         void setRecording(bool r);
         bool isRecording() const { return m_recording; }
         unsigned int seed() const { return m_seed; }
 
+        
         void record(const std::string& op, const std::string& target,
                     size_t index, std::optional<int> value);
 
+        
         bool save(const std::string& filename);
         bool load(const std::string& filename);
 
+        
         bool saveJSON(const std::string& filename) { return save(filename); }
         bool loadJSON(const std::string& filename) { return load(filename); }
 
+        
         const std::vector<RecordedCommand>& get() const { return m_recorded; }
+            
             std::vector<CommandData> getCommands() const {
                 std::vector<CommandData> out; out.reserve(m_recorded.size());
                 for (auto &rc : m_recorded) {

@@ -57,6 +57,7 @@ void StructureController::execute(const std::string& op) {
         } else if (op == "remove") {
             if (m_structure->size() > 0) m_structure->remove(0);
         } else if (op == "highlight") {
+            /* sem visualizer */
         }
     }
 }
@@ -68,7 +69,7 @@ void StructureController::executeAndRecord(const std::string& op, ds::CommandRec
             m_visualizer->queueOperation("Inserir", [this, recorder, targetName]() {
                 size_t before = m_structure->size();
                 size_t sz = before;
-                size_t idx = sz;
+                size_t idx = sz; 
                 int val = m_rng ? m_rng->nextInt(0,99) : (std::rand() % 100);
                 m_structure->insert(idx, val);
                 size_t after = m_structure->size();
@@ -156,3 +157,4 @@ void StructureController::insertAt(size_t idx, int val) {
         }
     }
 }
+

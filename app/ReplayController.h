@@ -3,12 +3,12 @@
 #include <string>
 #include <functional>
 #include <algorithm>
-#include "CommandRecorder.hpp"
+#include "CommandRecorder.hpp" 
 
 class ReplayController {
 public:
     using RecordedCommand = ds::CommandRecorder::RecordedCommand;
-    using ApplyFn = std::function<void(const RecordedCommand&)>;
+    using ApplyFn = std::function<void(const RecordedCommand&)>; 
 
     void bindSource(const ds::CommandRecorder* recorder) { m_recorder = recorder; }
     void bindApply(ApplyFn fn) { m_apply = std::move(fn); }
@@ -24,7 +24,7 @@ public:
         const auto& cmds = m_recorder->get();
         if (m_index < cmds.size()) {
             m_clock = cmds[m_index].t;
-            m_paused = false;
+            m_paused = false; 
         }
     }
     void speedHalf() { m_speed = std::max(0.1f, m_speed * 0.5f); }

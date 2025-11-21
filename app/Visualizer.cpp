@@ -3,10 +3,6 @@
 #include <iostream>
 
 void Visualizer::render(const std::vector<int>& state) {
-    // NOVO: Se já existem animações específicas enfileiradas (ex: VectorVisualizer / LinkedListVisualizer),
-    // evitamos gerar passos de inserção/remoção duplicados via estratégia. Apenas sincronizamos os valores
-    // dos nós existentes e ajustamos tamanho se necessário.
-    // Estratégia desativada: apenas sincroniza valores se tamanhos iguais.
     if (m_nodes.size() == state.size()) {
         for (size_t i = 0; i < state.size(); ++i) m_nodes[i].value = state[i];
     }
@@ -87,6 +83,7 @@ void Visualizer::refreshPositions(std::function<sf::Vector2f(size_t)> positionFn
 bool Visualizer::saveFramesDAO(const std::string& dirPath) { exportFrames(dirPath); return true; }
 
 void Visualizer::exportAsMP4(const std::string& dirPath, const std::string& mp4File, const ds::VideoConfig& cfg) {
+    clearSavedFrames(dirPath);
     exportFrames(dirPath);
     ds::VideoExporter ve;
     ve.exportFromPNGs(dirPath, mp4File, cfg,
@@ -97,6 +94,7 @@ void Visualizer::exportAsMP4WithProgress(const std::string& dirPath, const std::
                                          const ds::VideoExporter::EventFn& onEvent,
                                          const ds::VideoExporter::CancelFn& shouldCancel,
                                          int* outPid) {
+    clearSavedFrames(dirPath);
     exportFrames(dirPath);
     ds::VideoExporter ve;
     ve.exportFromPNGs(dirPath, mp4File, cfg, onEvent, shouldCancel, outPid);

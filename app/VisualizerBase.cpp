@@ -1,6 +1,6 @@
 #include "VisualizerBase.h"
 
-void VisualizerBase::update(float dt)
+void VisualizerBase::update(float dt) {
     if (m_animationQueue.empty() && !m_operationQueue.empty()) {
         m_operationQueue.front().action();
         m_operationQueue.pop_front();

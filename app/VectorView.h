@@ -4,6 +4,7 @@
 #include <memory>
 #include <vector>
 
+
 class VectorView : public IDataView {
 public:
     VectorView(sf::Font& font, const sf::Vector2f& position)
@@ -11,17 +12,21 @@ public:
     }
     
     virtual ~VectorView() = default;
+    
+    
     void render(sf::RenderWindow& window) const override {
         for (size_t i = 0; i < m_renderNodes.size(); ++i) {
             const auto& node = m_renderNodes[i];
-
+            
+            
             sf::RectangleShape box(sf::Vector2f(BOX_WIDTH, BOX_HEIGHT));
             box.setPosition(node.position);
             box.setFillColor(node.color);
             box.setOutlineColor(sf::Color::Black);
             box.setOutlineThickness(2.0f);
             window.draw(box);
-
+            
+            
             sf::Text text(std::to_string(node.value), m_font, 24);
             text.setFillColor(sf::Color::Black);
             sf::FloatRect textBounds = text.getLocalBounds();
@@ -30,7 +35,8 @@ public:
                 node.position.y + (BOX_HEIGHT - textBounds.height) / 2
             );
             window.draw(text);
-
+            
+            
             sf::Text indexText(std::to_string(i), m_font, 16);
             indexText.setFillColor(sf::Color::White);
             indexText.setPosition(node.position.x + 2, node.position.y - 20);
@@ -39,6 +45,7 @@ public:
     }
     
     void updateData(const std::vector<int>& data) override {
+        
         m_renderNodes.clear();
         for (size_t i = 0; i < data.size(); ++i) {
             RenderNode node;
@@ -51,20 +58,24 @@ public:
     
     void setPosition(const sf::Vector2f& position) override {
         m_position = position;
+        
         for (size_t i = 0; i < m_renderNodes.size(); ++i) {
             m_renderNodes[i].position = getPositionForIndex(i);
         }
     }
     
     void reflow(float windowWidth, float panelWidth) override {
+        
         float availableWidth = windowWidth - panelWidth - 40;
         if (!m_renderNodes.empty()) {
             float totalWidth = m_renderNodes.size() * (BOX_WIDTH + SPACING) - SPACING;
             if (totalWidth > availableWidth) {
-                m_position.x = 20;
+                m_position.x = 20;  
             } else {
-                m_position.x = (availableWidth - totalWidth) / 2 + 20;
+                m_position.x = (availableWidth - totalWidth) / 2 + 20;  
             }
+            
+            
             for (size_t i = 0; i < m_renderNodes.size(); ++i) {
                 m_renderNodes[i].position = getPositionForIndex(i);
             }
@@ -78,11 +89,12 @@ public:
     }
     
     bool hasActiveAnimations() const override {
-        return false;
+        return false; 
     }
     
     void updateAnimations(float deltaTime) override {
-        (void)deltaTime;
+        
+        (void)deltaTime; 
     }
 
 private:

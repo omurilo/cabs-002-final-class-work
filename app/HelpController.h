@@ -4,6 +4,7 @@
 #include "commands_help.hpp"
 #include <string>
 
+
 class HelpController {
 public:
     explicit HelpController(sf::Font& font) : m_font(font) {}

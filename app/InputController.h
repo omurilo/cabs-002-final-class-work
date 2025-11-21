@@ -10,7 +10,9 @@
 #include "LinkedListVisualizer.h"
 #include "ReplayController.h"
 #include "ExportController.h"
+#include "ExportStatusModel.h"
 #include "datastructures.hpp"
+
 
 class InputController {
 public:
@@ -23,12 +25,13 @@ public:
         ds::CommandRecorder& recorder,
         ReplayController& replay,
         ExportController& exportCtrl,
+        ExportStatusModel& exportStatusModel,
         ds::RandomProvider& rng,
         std::function<void(const std::string&)> pushSubtitle,
         bool& showLimitFlag,
         std::function<void()> helpToggle
     ) : m_vectorCtrl(vCtrl), m_listCtrl(lCtrl), m_vectorViz(vViz),
-        m_recorder(recorder), m_replay(replay), m_export(exportCtrl), m_rng(rng),
+        m_recorder(recorder), m_replay(replay), m_export(exportCtrl), m_exportStatusModel(exportStatusModel), m_rng(rng),
         m_push(std::move(pushSubtitle)), m_showLimit(showLimitFlag), m_helpToggle(std::move(helpToggle)) {
         registerDefaults();
     }
@@ -41,6 +44,7 @@ public:
     }
 private:
     void registerDefaults() {
+        
         m_map[sf::Keyboard::I] = [&]{ m_vectorCtrl.insert(); };
         m_map[sf::Keyboard::R] = [&]{ m_vectorCtrl.remove(); };
         m_map[sf::Keyboard::A] = [&]{ m_listCtrl.insert(); };
@@ -48,14 +52,31 @@ private:
         m_map[sf::Keyboard::H] = [&]{ m_vectorCtrl.highlight(); };
         m_map[sf::Keyboard::V] = [&]{ m_vectorCtrl.clear(); };
         m_map[sf::Keyboard::B] = [&]{ m_listCtrl.clear(); };
-        m_map[sf::Keyboard::E] = [&]{ m_export.startPNG(&m_vectorViz, "frames/vector", "frame"); };
-        m_map[sf::Keyboard::M] = [&]{ ds::VideoConfig cfg; cfg.fps=30; cfg.crf=28; m_export.startMP4(&m_vectorViz, "frames/vector", "vector.mp4", cfg); };
-        m_map[sf::Keyboard::Z] = [&]{ m_export.requestCancelVideo(); m_export.requestCancelFrames(); };
+
+        
+        m_map[sf::Keyboard::E] = [&]{ m_export.startPNG(m_exportStatusModel, &m_vectorViz, "frames/vector", "frame"); };
+        m_map[sf::Keyboard::M] = [&]{ ds::VideoConfig cfg; cfg.fps=30; cfg.crf=28; m_export.startMP4(m_exportStatusModel, &m_vectorViz, "frames/vector", "vector.mp4", cfg); };
+        m_map[sf::Keyboard::Z] = [&]{ m_export.requestCancelVideo(m_exportStatusModel); m_export.requestCancelFrames(m_exportStatusModel); };
+
+        
         m_map[sf::Keyboard::F] = [&]{ m_vectorViz.toggleCapture(); m_push(m_vectorViz.isCaptureEnabled()?"Captura ON":"Captura OFF"); };
         m_map[sf::Keyboard::C] = [&]{ m_vectorViz.clearMemoryFrames(); m_push("Frames memoria limpos"); };
         m_map[sf::Keyboard::X] = [&]{ m_vectorViz.clearSavedFrames("frames/vector"); m_push("Frames disco limpos"); };
         m_map[sf::Keyboard::T] = [&]{ size_t currentLimit = m_vectorViz.getCaptureLimit(); size_t newLimit = (currentLimit <= 900)?1800:900; m_vectorViz.setCaptureMaxFrames(newLimit); m_showLimit=true; m_push("Limite="+std::to_string(newLimit)); };
-        m_map[sf::Keyboard::G] = [&]{ bool wasRecording = m_recorder.isRecording(); m_recorder.toggle(); if(!wasRecording && m_recorder.isRecording()){ if(!m_rng.hasSeed()) m_rng.setSeed(m_recorder.seed()); m_rng.setSeed(m_recorder.seed()); m_push("Seed aplicada="+std::to_string(m_recorder.seed())); } m_replay.startTemporal(); m_push("Replay temporal ON"); };
+
+        
+        m_map[sf::Keyboard::G] = [&]{ 
+            bool wasRecording = m_recorder.isRecording(); 
+            m_recorder.toggle(); 
+            if(!wasRecording && m_recorder.isRecording()){ 
+                if(!m_rng.hasSeed()) m_rng.setSeed(m_recorder.seed()); 
+                m_rng.setSeed(m_recorder.seed()); 
+                m_push("Seed aplicada="+std::to_string(m_recorder.seed())); 
+            }
+            
+            
+        };
+        
         m_map[sf::Keyboard::S] = [&]{
             const std::string out = "commands.json";
             if (m_recorder.save(out)) {
@@ -64,6 +85,7 @@ private:
                 m_push("Falha salvar commands.json");
             }
         };
+        
         m_map[sf::Keyboard::K] = [&]{
             const std::string path = "commands.json";
             size_t before = m_recorder.get().size();
@@ -92,7 +114,9 @@ private:
         m_map[sf::Keyboard::N] = [&]{ m_replay.step(); m_push("Replay STEP"); };
         m_map[sf::Keyboard::LBracket] = [&]{ m_replay.speedHalf(); m_push("Replay speed="+std::to_string(m_replay.speed())); };
         m_map[sf::Keyboard::RBracket] = [&]{ m_replay.speedDouble(); m_push("Replay speed="+std::to_string(m_replay.speed())); };
-        m_map[sf::Keyboard::Slash] = [&]{ if(m_helpToggle) m_helpToggle(); };
+
+        
+        m_map[sf::Keyboard::Slash] = [&]{ if(m_helpToggle) m_helpToggle(); }; 
     }
 
     std::unordered_map<sf::Keyboard::Key, Action> m_map;
@@ -102,6 +126,7 @@ private:
     ds::CommandRecorder& m_recorder;
     ReplayController& m_replay;
     ExportController& m_export;
+    ExportStatusModel& m_exportStatusModel;
     ds::RandomProvider& m_rng;
     std::function<void(const std::string&)> m_push;
     bool& m_showLimit;

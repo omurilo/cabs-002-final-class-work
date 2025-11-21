@@ -16,8 +16,9 @@ public:
     void reset();
     void setSpeed(double s) { m_speed = s; }
     void pause(bool p) { m_paused = p; }
-    void advance(double dt);
+    void advance(double dt); 
 
+    
     void onInsert(InsertCb cb) { m_onInsert = std::move(cb); }
     void onRemove(RemoveCb cb) { m_onRemove = std::move(cb); }
     void onHighlight(HighlightCb cb) { m_onHighlight = std::move(cb); }
@@ -36,4 +37,4 @@ private:
     ClearCb m_onClear;
 };
 
-} // namespace ds
+} 

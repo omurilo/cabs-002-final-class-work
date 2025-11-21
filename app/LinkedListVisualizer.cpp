@@ -115,10 +115,12 @@ void LinkedListVisualizer::buildPopFrontAnimation() {
     enqueueAnimation(std::make_unique<ColorStep>(0, sf::Color::Red));
     sf::Vector2f targetPos = { getPositionForIndex(0).x, m_position.y - NODE_HEIGHT * 2 };
     enqueueAnimation(std::make_unique<MoveStep>(0, targetPos, 0.4f));
-    enqueueAnimation(std::make_unique<DataRemoveStep>(0));
-    for (size_t i = 0; i < m_nodes.size() - 1; ++i) {
-        enqueueAnimation(std::make_unique<MoveStep>(i, getPositionForIndex(i)));
+    
+    for (size_t i = 1; i < m_nodes.size(); ++i) {
+        enqueueAnimation(std::make_unique<MoveStep>(i, getPositionForIndex(i - 1)));
     }
+    
+    enqueueAnimation(std::make_unique<DataRemoveStep>(0));
 }
 
 void LinkedListVisualizer::buildInsertAtAnimation(int value, size_t index) {
@@ -159,10 +161,10 @@ void LinkedListVisualizer::draw(sf::RenderWindow& window) const {
         headText.setPosition(m_nodes.front().position.x + NODE_WIDTH / 2.f - headBounds.width / 2.f, m_nodes.front().position.y - 30.f);
         window.draw(headText);
     }
-
+    
     for (size_t i = 0; i < m_nodes.size(); ++i) {
         const auto& node = m_nodes[i];
-
+        
         sf::RectangleShape dataBox(sf::Vector2f(NODE_WIDTH, NODE_HEIGHT));
         dataBox.setPosition(node.position);
         dataBox.setFillColor(sf::Color(20, 20, 80));
@@ -181,7 +183,7 @@ void LinkedListVisualizer::draw(sf::RenderWindow& window) const {
         sf::FloatRect textBounds = valueText.getLocalBounds();
         valueText.setOrigin(textBounds.left + textBounds.width / 2.f, textBounds.top + textBounds.height / 2.f);
         valueText.setPosition(node.position.x + NODE_WIDTH / 2.f, node.position.y + NODE_HEIGHT / 2.f);
-
+        
     window.draw(dataBox);
         window.draw(ptrBox);
         window.draw(valueText);

@@ -27,7 +27,6 @@ static const std::vector<std::pair<std::string, std::string>> COMMAND_HELP = {
     {"B", "(Futuro) Toggle modo circular de frames"},
     {"T", "Toggle limite de frames (900 <-> 1800)"}
 };
-
 void HelpPanel::showHelpWindow(sf::Font& font) {
     static bool showHelpWindow = false;
     static std::unique_ptr<sf::RenderWindow> helpWindow;

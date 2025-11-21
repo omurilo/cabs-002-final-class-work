@@ -3,6 +3,7 @@
 namespace appstyle {
     inline constexpr float SCALE = 1.0f;
 
+    
     inline constexpr unsigned TITLE = static_cast<unsigned>(34 * SCALE);
     inline constexpr unsigned SUBTITLE = static_cast<unsigned>(26 * SCALE);
     inline constexpr unsigned PANEL_TITLE = static_cast<unsigned>(28 * SCALE);

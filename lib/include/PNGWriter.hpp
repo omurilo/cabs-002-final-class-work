@@ -11,9 +11,11 @@ class PNGWriter : public IImageExporter {
 public:
     using EventFn = std::function<void(const ExportEvent&)>;
     using CancelFn = std::function<bool()>;
-
+    
+    
     bool exportFrame(const FrameData& frame, const std::string& path) const override;
-
+    
+    
     bool save(const std::vector<FrameData>& frames,
               const std::string& dirPath,
               const std::string& prefix,
