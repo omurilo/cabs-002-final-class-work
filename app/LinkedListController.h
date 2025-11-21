@@ -25,7 +25,6 @@ public:
         m_view->animateInsertString(label, idx);
         if (auto* concrete = dynamic_cast<DataStructureModel*>(m_model)) {
             concrete->insertString(idx, label);
-            m_view->syncLabels(concrete->labels());
         }
         record("INSERT", idx, std::nullopt);
     }
@@ -59,7 +58,6 @@ public:
         m_view->animateInsertString(label, idx);
         if (auto* concrete = dynamic_cast<DataStructureModel*>(m_model)) {
             concrete->insertString(idx, label);
-            m_view->syncLabels(concrete->labels());
         }
     }
     void removeAt(size_t idx) {

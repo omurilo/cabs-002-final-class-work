@@ -9,44 +9,19 @@
 #include "LinkedListController.h"
 #include "DataStructureModel.h"
 #include "datastructures.hpp"
+#include "commands_help.hpp"
+#include "SubtitleController.h"
+#include "ReplayController.h"
+#include "ExportController.h"
+#include "InputController.h"
+#include "HelpController.h"
 #include <iostream>
 #include <fstream>
-#include <ctime>
 #include <memory>
 #include <string>
 #include <vector>
-#include <deque>
-#include <functional>
-#include <future>
 #include <thread>
 #include <atomic>
-#include <mutex>
-#include <sstream>
-#include <iomanip>
-
-static const std::vector<std::pair<std::string, std::string>> COMMAND_HELP = {
-    {"I", "Inserir elemento aleatorio no Vetor"},
-    {"R", "Remover elemento (indice aleatorio) do Vetor"},
-    {"H", "Destacar elemento (indice aleatorio) no Vetor"},
-    {"V", "Limpar todos os elementos do Vetor"},
-    {"A", "Inserir elemento aleatorio na Lista"},
-    {"D", "Remover elemento (posicao aleatoria) da Lista"},
-    {"B", "Limpar todos os elementos da Lista"},
-    {"F", "Toggle capturar frames em memoria"},
-    {"C", "Limpar frames em memoria"},
-    {"X", "Limpar frames salvos em disco"},
-    {"E", "Exportar frames em PNG (frames/vector)"},
-    {"M", "Exportar MP4 (vector.mp4) via ffmpeg"},
-    {"G", "Iniciar/Parar gravacao de comandos"},
-    {"J", "Salvar comandos em JSON (commands.json)"},
-    {"K", "Carregar JSON e iniciar replay temporal"},
-    {"P", "Pausar/Retomar replay temporal"},
-    {"N", "Avancar um passo no replay quando pausado"},
-    {"[", "Diminuir velocidade do replay temporal"},
-    {"]", "Aumentar velocidade do replay temporal"},
-    {"B", "(Futuro) Toggle modo circular de frames"},
-    {"T", "Toggle limite de frames (900 <-> 1800)"}
-};
 
 int main() {
     sf::RenderWindow window(sf::VideoMode(1400, 800), "Visualizador Animado de Estruturas de Dados");
@@ -96,46 +71,61 @@ int main() {
     DataStructureModel listModel(std::move(listImpl));
 
     ds::CommandRecorder recorder;
-    vectorModel.attach([&vecViz](const std::vector<int>& st){ vecViz.syncState(st); });
-    listModel.attach([&listViz](const std::vector<int>& st){ listViz.syncState(st); });
+    const std::string recordJSON = "commands.json";
+    if (std::filesystem::exists(recordJSON)) {
+        if (recorder.load(recordJSON)) {
+            std::cout << "[AutoReplay] Carregado " << recorder.get().size() << " comandos de '" << recordJSON << "'\n";
+        } else {
+            std::cout << "[AutoReplay] Falha ao carregar '" << recordJSON << "'\n";
+        }
+    }
+    vectorModel.attach([&vecViz](const DataState& st){ vecViz.syncState(st); });
+    listModel.attach([&listViz](const DataState& st){ listViz.syncState(st); });
 
     VectorController vectorController(&vectorModel, &vecViz, &rng, &recorder, "vector");
     LinkedListController listController(&listModel, &listViz, &rng, &recorder, "list");
 
     sf::Clock clock;
     bool showLimitStatus = false;
-    const std::string recordJSON = "commands.json";
-    bool autoReplayLoaded = false;
 
-    bool timedReplayActive = false;
-    size_t timedReplayIndex = 0;
-    float timedReplayClock = 0.f;
-    float timedReplaySpeed = 1.f;
-    bool timedReplayPaused = false;
-
-    struct Subtitle { std::string text; float age; };
-    std::vector<Subtitle> subtitles;
-    auto pushSubtitle = [&subtitles](const std::string& t){ subtitles.push_back({t, 0.f}); if (subtitles.size() > 12) subtitles.erase(subtitles.begin()); };
-    const float SUBTITLE_DURATION = 3.5f;
+    SubtitleController subtitleController;
+    auto pushSubtitle = [&subtitleController](const std::string& t){ subtitleController.add(t); };
+    ReplayController replayController;
+    replayController.bindSource(&recorder);
+    replayController.bindApply([&](const ds::CommandRecorder::RecordedCommand& cmd){
+        try {
+            if (cmd.target == "vector") {
+                if (cmd.op == "INSERT" && (cmd.hasValue || cmd.hasLabel)) {
+                    if (cmd.hasLabel) vectorController.insertAtString(cmd.index, cmd.label);
+                    else vectorController.insertAt(cmd.index, cmd.value);
+                } else if (cmd.op == "REMOVE") vectorController.removeAt(cmd.index);
+                else if (cmd.op == "HIGHLIGHT") vectorController.highlightAt(cmd.index);
+            } else if (cmd.target == "list") {
+                if (cmd.op == "INSERT" && (cmd.hasValue || cmd.hasLabel)) {
+                    if (cmd.hasLabel) listController.insertAtString(cmd.index, cmd.label);
+                    else listController.insertAt(cmd.index, cmd.value);
+                } else if (cmd.op == "REMOVE") listController.removeAt(cmd.index);
+                else if (cmd.op == "HIGHLIGHT") listController.highlightAt(cmd.index);
+            }
+            pushSubtitle("Temporal:" + cmd.op + " " + cmd.target);
+        } catch(const std::exception& ex) {
+            std::cerr << "[Replay] Excecao ao aplicar comando: " << ex.what() << "\n";
+            pushSubtitle("Erro replay");
+        }
+    });
 
     sf::RectangleShape helpButton(sf::Vector2f(110.f, 30.f));
     helpButton.setFillColor(sf::Color(60, 60, 140));
     helpButton.setOutlineColor(sf::Color(180, 180, 255));
     helpButton.setOutlineThickness(1.f);
 
-    bool showHelpWindow = false;
-    std::unique_ptr<sf::RenderWindow> helpWindow;
+    HelpController helpController(font);
 
-    bool exportingFrames = false;
-    std::atomic<size_t> framesProgressCurrent{0};
-    std::atomic<size_t> framesProgressTotal{0};
-    bool framesCancelRequested = false;
-    bool exportingVideo = false;
-    std::atomic<bool> videoDone{false};
-    bool videoCancelRequested = false;
-    int currentVideoPid = -1;
-    std::string videoProgressLine;
-    sf::Clock exportClock;
+    ExportController exportController(pushSubtitle);
+
+    auto toggleHelp = [&](){ helpController.toggle(); };
+
+    InputController inputController(vectorController, listController, vecViz, recorder, replayController, exportController, rng, pushSubtitle, showLimitStatus, toggleHelp);
 
     while (window.isOpen()) {
         sf::Time elapsed = clock.restart();
@@ -153,7 +143,6 @@ int main() {
             }
 
             if (event.type == sf::Event::MouseMoved) {
-                helpButton.setPosition(15.f, 100.f);
                 if (helpButton.getGlobalBounds().contains(static_cast<float>(event.mouseMove.x), static_cast<float>(event.mouseMove.y))) {
                     helpButton.setFillColor(sf::Color(80, 80, 180));
                 } else {
@@ -163,214 +152,70 @@ int main() {
 
             if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left) {
                 if (helpButton.getGlobalBounds().contains(static_cast<float>(event.mouseButton.x), static_cast<float>(event.mouseButton.y))) {
-                    if (!showHelpWindow) {
-                        helpWindow = std::make_unique<sf::RenderWindow>(sf::VideoMode(600, 700), "Comandos Disponiveis", sf::Style::Titlebar | sf::Style::Close);
-                        helpWindow->setFramerateLimit(60);
-                        showHelpWindow = true;
-                    } else {
-                        if (helpWindow && helpWindow->isOpen()) {
-                            helpWindow->close();
-                        }
-                        showHelpWindow = false;
-                    }
+                    toggleHelp();
                 }
             }
 
             if (event.type == sf::Event::KeyPressed) {
-                if (event.key.code == sf::Keyboard::I) vectorController.insert();
-                else if (event.key.code == sf::Keyboard::R) vectorController.remove();
-                else if (event.key.code == sf::Keyboard::A) listController.insert();
-                else if (event.key.code == sf::Keyboard::D) listController.remove();
-                else if (event.key.code == sf::Keyboard::H) vectorController.highlight();
-                else if (event.key.code == sf::Keyboard::V) vectorController.clear();
-                else if (event.key.code == sf::Keyboard::B) listController.clear();
-                else if (event.key.code == sf::Keyboard::E) {
-                    if (!exportingFrames) {
-                        exportingFrames = true;
-                        framesProgressCurrent = 0;
-                        framesProgressTotal = vecViz.getCapturedFrameCount();
-                        pushSubtitle("Export PNG iniciada");
-                        std::thread([&vecViz, &exportingFrames, &framesProgressCurrent, &framesProgressTotal, &framesCancelRequested, &pushSubtitle](){
-                            vecViz.exportFramesWithProgress("frames/vector", "frame",
-                                [&](const ds::ExportEvent& ev){
-                                    switch (ev.type) {
-                                        case ds::ExportEventType::Start: framesProgressCurrent=0; framesProgressTotal=ev.total; break;
-                                        case ds::ExportEventType::FrameSaved: framesProgressCurrent=ev.current; framesProgressTotal=ev.total; break;
-                                        case ds::ExportEventType::Completed: pushSubtitle("PNG concluido"); exportingFrames=false; break;
-                                        case ds::ExportEventType::Cancelled: pushSubtitle("PNG cancelado"); exportingFrames=false; break;
-                                        case ds::ExportEventType::Error: pushSubtitle("Erro PNG"); break;
-                                        default: break;
-                                    }
-                                }, [&framesCancelRequested](){ return framesCancelRequested; });
-                        }).detach();
-                    }
-                }
-                else if (event.key.code == sf::Keyboard::M) {
-                    if (!exportingVideo) {
-                        exportingVideo = true; videoDone = false; videoCancelRequested = false; exportClock.restart();
-                        pushSubtitle("Export MP4 iniciada");
-                        std::thread([&vecViz, &exportingVideo, &videoDone, &videoProgressLine, &videoCancelRequested, &currentVideoPid, &pushSubtitle](){
-                            ds::VideoConfig cfg; cfg.fps = 30; cfg.crf = 28;
-                            vecViz.exportAsMP4WithProgress("frames/vector", "vector.mp4", cfg,
-                                [&](const ds::ExportEvent& ev){
-                                    if (ev.type == ds::ExportEventType::Progress) {
-                                        videoProgressLine = ev.message;
-                                    } else if (ev.type == ds::ExportEventType::Completed) {
-                                        pushSubtitle("MP4 concluido"); videoDone=true; exportingVideo=false; videoProgressLine = "Concluido";
-                                    } else if (ev.type == ds::ExportEventType::Cancelled) {
-                                        pushSubtitle("MP4 cancelado"); videoDone=true; exportingVideo=false; videoProgressLine = "Cancelado";
-                                    } else if (ev.type == ds::ExportEventType::Error) {
-                                        pushSubtitle("Erro MP4"); videoDone=true; exportingVideo=false; videoProgressLine = "Erro";
-                                    } else if (ev.type == ds::ExportEventType::Start) {
-                                        videoProgressLine = "Iniciando ffmpeg";
-                                    }
-                                }, [&videoCancelRequested](){ return videoCancelRequested; }, &currentVideoPid);
-                        }).detach();
-                    }
-                }
-                else if (event.key.code == sf::Keyboard::Z) {
-                    if (exportingVideo && !videoDone && currentVideoPid > 0) {
-                        videoCancelRequested = true;
-                        pushSubtitle("Solicitado cancelamento video");
-                    }
-                    if (exportingFrames) {
-                        framesCancelRequested = true;
-                        pushSubtitle("Solicitado cancelamento PNG");
-                    }
-                }
-                else if (event.key.code == sf::Keyboard::F) { vecViz.toggleCapture(); pushSubtitle(vecViz.isCaptureEnabled()?"Captura ON":"Captura OFF"); }
-                else if (event.key.code == sf::Keyboard::C) { vecViz.clearMemoryFrames(); pushSubtitle("Frames memoria limpos"); }
-                else if (event.key.code == sf::Keyboard::X) { vecViz.clearSavedFrames("frames/vector"); pushSubtitle("Frames disco limpos"); }
-                else if (event.key.code == sf::Keyboard::G) {
-                    bool wasRecording = recorder.isRecording();
-                    recorder.toggle();
-                    if (!wasRecording && recorder.isRecording()) {
-                        framesCancelRequested = false;
-                        exportClock.restart();
-                        if (!rng.hasSeed()) rng.setSeed(recorder.seed());
-                        pushSubtitle("Seed=" + std::to_string(recorder.seed()));
-                    }
-                    pushSubtitle(recorder.isRecording()?"Gravacao ON":"Gravacao OFF");
-                }
-                else if (event.key.code == sf::Keyboard::J) {
-                    if (recorder.saveJSON(recordJSON)) std::cout << "[Recorder] JSON salvo em " << recordJSON << "\n";
-                    pushSubtitle("Salvar JSON");
-                }
-                else if (event.key.code == sf::Keyboard::K || (!autoReplayLoaded && std::filesystem::exists(recordJSON))) {
-                    if (recorder.loadJSON(recordJSON)) {
-                        std::cout << "[Recorder] Replay temporal carregado de JSON...\n";
-                        if (recorder.seed() && (!rng.hasSeed() || rng.seed() != recorder.seed())) {
-                            rng.setSeed(recorder.seed());
-                            pushSubtitle("Seed aplicada=" + std::to_string(recorder.seed()));
-                        }
-                        timedReplayActive = true; timedReplayIndex = 0; timedReplayClock = 0.f;
-                        timedReplayPaused = false; timedReplaySpeed = 1.f;
-                        pushSubtitle("Replay temporal ON");
-                        autoReplayLoaded = true;
-                    }
-                }
-                else if (event.key.code == sf::Keyboard::P) {
-                    if (timedReplayActive) timedReplayPaused = !timedReplayPaused;
-                    pushSubtitle(timedReplayPaused?"Replay PAUSE":"Replay RESUME");
-                }
-                else if (event.key.code == sf::Keyboard::N) {
-                    if (timedReplayActive && timedReplayPaused) {
-                        timedReplayClock = recorder.get().empty() ? 0.f : recorder.get()[timedReplayIndex].t;
-                        timedReplayPaused = false;
-                        pushSubtitle("Replay STEP");
-                    }
-                }
-                else if (event.key.code == sf::Keyboard::LBracket) {
-                    timedReplaySpeed = std::max(0.1f, timedReplaySpeed * 0.5f);
-                    std::cout << "[Replay] speed=" << timedReplaySpeed << '\n';
-                    pushSubtitle("Replay speed="+std::to_string(timedReplaySpeed));
-                }
-                else if (event.key.code == sf::Keyboard::RBracket) {
-                    timedReplaySpeed = std::min(16.f, timedReplaySpeed * 2.f);
-                    std::cout << "[Replay] speed=" << timedReplaySpeed << '\n';
-                    pushSubtitle("Replay speed="+std::to_string(timedReplaySpeed));
-                }
-                else if (event.key.code == sf::Keyboard::B) {
-                    vecViz.toggleCapture();
-                    std::cout << "[Frames] Modo circular requer implementacao completa (placeholder)." << '\n';
-                    pushSubtitle("Modo circular placeholder");
-                }
-                else if (event.key.code == sf::Keyboard::T) {
-                    size_t currentLimit = vecViz.getCaptureLimit();
-                    size_t newLimit = (currentLimit <= 900) ? 1800 : 900;
-                    vecViz.setCaptureMaxFrames(newLimit);
-                    std::cout << "[Frames] Limite de captura agora = " << newLimit << " frames." << '\n';
-                    showLimitStatus = true;
-                    pushSubtitle("Limite="+std::to_string(newLimit));
-                }
+                inputController.handleKey(event.key.code);
             }
         }
         
     vecViz.update(dt);
     listViz.update(dt);
-
-        if (timedReplayActive) {
-            if (!timedReplayPaused) timedReplayClock += dt * timedReplaySpeed;
-            const auto& cmds = recorder.get();
-            while (timedReplayIndex < cmds.size() && cmds[timedReplayIndex].t <= timedReplayClock) {
-                const auto& cmd = cmds[timedReplayIndex];
-                try {
-                    if (cmd.target == "vector") {
-                        if (cmd.op == "INSERT" && (cmd.hasValue || cmd.hasLabel)) {
-                            if (cmd.hasLabel) {
-                                vectorController.insertAtString(cmd.index, cmd.label);
-                            } else {
-                                vectorController.insertAt(cmd.index, cmd.value);
-                            }
-                        }
-                        else if (cmd.op == "REMOVE") vectorController.removeAt(cmd.index);
-                        else if (cmd.op == "HIGHLIGHT") vectorController.highlightAt(cmd.index);
-                        pushSubtitle("Temporal:"+cmd.op+" vector");
-                    } else if (cmd.target == "list") {
-                        if (cmd.op == "INSERT" && (cmd.hasValue || cmd.hasLabel)) {
-                            if (cmd.hasLabel) {
-                                listController.insertAtString(cmd.index, cmd.label);
-                            } else {
-                                listController.insertAt(cmd.index, cmd.value);
-                            }
-                        }
-                        else if (cmd.op == "REMOVE") listController.removeAt(cmd.index);
-                        else if (cmd.op == "HIGHLIGHT") listController.highlightAt(cmd.index);
-                        pushSubtitle("Temporal:"+cmd.op+" list");
-                    }
-                } catch(const std::exception& ex) {
-                    std::cerr << "[Replay] Excecao ao aplicar comando: " << ex.what() << "\n";
-                    pushSubtitle("Erro replay");
-                }
-                timedReplayIndex++;
-            }
-            if (timedReplayIndex >= cmds.size()) {
-                timedReplayActive = false;
-                std::cout << "[Recorder] Replay temporal concluido." << std::endl;
-                pushSubtitle("Replay temporal fim");
-            }
-        }
+    replayController.update(dt);
 
     window.clear(sf::Color(30, 30, 30));
 
-        titleText.setPosition(window.getSize().x / 2.0f, 30.f);
-        
+    float hudY = 18.f;
+    float hudStartX = 12.f;
+    float hudMaxWidth = 0.f;
+    std::vector<sf::Text> hudTexts;
+    auto measureHudLine = [&](const std::string& text, unsigned size){
+        sf::Text t(text, font, size); sf::FloatRect b = t.getLocalBounds(); hudMaxWidth = std::max(hudMaxWidth, b.width); return t; };
+    auto pushHudLine = [&](const std::string& text, unsigned size, sf::Color c){ sf::Text t = measureHudLine(text, size); t.setFillColor(c); t.setPosition(hudStartX + 8.f, hudY); hudTexts.push_back(t); hudY += size * 1.15f; };
+    pushHudLine(recorder.isRecording()?"REC ON (G)":"REC OFF (G)", appstyle::HUD_MEDIUM, recorder.isRecording()?sf::Color(255,80,80):sf::Color(200,200,200));
+    pushHudLine(vecViz.isCaptureEnabled()?"CAPTURA ON (F)":"CAPTURA OFF (F)", appstyle::HUD_MEDIUM, vecViz.isCaptureEnabled()?sf::Color(80,220,80):sf::Color(180,180,180));
+    if (showLimitStatus) { pushHudLine("Limite="+std::to_string(vecViz.getCaptureLimit())+" (T)", appstyle::HUD_SMALL, sf::Color(180,255,180)); showLimitStatus=false; }
+    if (replayController.active()) { pushHudLine("Replay: " + std::to_string((int)(replayController.clock()*1000)) + "ms", appstyle::HUD_SMALL, sf::Color(180,200,255)); }
+    const auto &es = exportController.status();
+    if (es.exportingFrames) { pushHudLine("Export PNG: " + std::to_string(es.framesCurrent) + "/" + std::to_string(es.framesTotal), appstyle::HUD_SMALL, sf::Color(255,180,80)); }
+    if (es.exportingVideo) { pushHudLine("Export MP4: " + es.videoProgressLine, appstyle::HUD_SMALL, sf::Color(255,200,120)); }
+
+    float panelHeight = hudY - 14.f + 10.f;
+    sf::RectangleShape hudBg(sf::Vector2f(hudMaxWidth + 40.f, panelHeight));
+    hudBg.setPosition(hudStartX, 8.f);
+    hudBg.setFillColor(sf::Color(0,0,0,120));
+    hudBg.setOutlineThickness(1.f);
+    hudBg.setOutlineColor(sf::Color(70,70,70,180));
+    window.draw(hudBg);
+    for (auto &t : hudTexts) window.draw(t);
+    if (es.exportingFrames && es.framesTotal>0) {
+        float barW = hudMaxWidth + 8.f; float barH = 10.f; float barX = hudStartX + 8.f; float barY = hudBg.getPosition().y + hudBg.getSize().y - 18.f;
+        sf::RectangleShape bg(sf::Vector2f(barW, barH)); bg.setPosition(barX, barY); bg.setFillColor(sf::Color(50,50,50)); window.draw(bg);
+        float pct = std::min(1.f, std::max(0.f, (float)es.framesCurrent / (float)es.framesTotal));
+        sf::RectangleShape fg(sf::Vector2f(barW*pct, barH)); fg.setPosition(barX, barY); fg.setFillColor(sf::Color(100,200,100)); window.draw(fg);
+    }
+
+    const float hudBottom = hudBg.getPosition().y + hudBg.getSize().y;
+        titleText.setPosition(window.getSize().x / 2.0f, hudBottom + 20.f);
         std::string instructionsString =
-            "[I] Inserir no Vetor  |  [R] Remover do Vetor\n"
-            "[A] Adicionar na Lista  |  [D] Remover da Lista";
+            "[I] Inserir Vetor | [R] Remover Vetor | [H] Highlight Vetor\n"
+            "[A] Inserir Lista | [D] Remover Lista | [B] Limpar Lista";
         instructionsText.setFont(font);
         instructionsText.setString(instructionsString);
         instructionsText.setCharacterSize(appstyle::PANEL_TEXT);
         instructionsText.setFillColor(sf::Color(200, 200, 200));
         sf::FloatRect instructionsBounds = instructionsText.getLocalBounds();
         instructionsText.setOrigin(instructionsBounds.left + instructionsBounds.width / 2.0f, instructionsBounds.top + instructionsBounds.height / 2.0f);
-        instructionsText.setPosition(window.getSize().x / 2.0f, 70.f);
+    instructionsText.setPosition(window.getSize().x / 2.0f, hudBottom + 60.f);
         
     window.draw(titleText);
     window.draw(instructionsText);
 
+    helpButton.setPosition(hudBg.getPosition().x + 6.f, hudBottom + 12.f);
     window.draw(helpButton);
-    sf::Text helpButtonText("Ajuda", font, 16);
+    sf::Text helpButtonText("Ajuda", font, appstyle::HUD_MEDIUM);
     helpButtonText.setFillColor(sf::Color::White);
     sf::FloatRect hb = helpButtonText.getLocalBounds();
     helpButtonText.setOrigin(hb.left + hb.width / 2.f, hb.top + hb.height / 2.f);
@@ -384,138 +229,12 @@ int main() {
     listViz.draw(window);
         
     commandPanel.draw(window, font);
-        sf::Text recInd(recorder.isRecording()?"REC ON (G)":"REC OFF (G)", font, 14);
-        recInd.setFillColor(recorder.isRecording()?sf::Color(255,80,80):sf::Color(160,160,160));
-        recInd.setPosition(15.f, 15.f);
-        window.draw(recInd);
-
-        sf::Text capInd(vecViz.isCaptureEnabled()?"CAPTURA ON (F)":"CAPTURA OFF (F)", font, 14);
-        capInd.setFillColor(vecViz.isCaptureEnabled()?sf::Color(80,200,80):sf::Color(120,120,120));
-        capInd.setPosition(15.f, 33.f);
-        window.draw(capInd);
-
-        bool showSeed = recorder.isRecording() || rng.hasSeed();
-        if (showSeed) {
-            unsigned int seedVal = rng.hasSeed() ? rng.seed() : recorder.seed();
-            sf::Text seedText("SEED=" + std::to_string(seedVal) + " (G)", font, 14);
-            seedText.setFillColor(sf::Color(200,160,40));
-            seedText.setPosition(15.f, 51.f);
-            window.draw(seedText);
-        }
-
-        if (timedReplayActive) {
-            sf::Text replayText(
-                std::string("Replay Temporal (K) t=") + std::to_string(timedReplayClock) +
-                (timedReplayPaused ? " [PAUSADO]" : "") + " speed=" + std::to_string(timedReplaySpeed), font, 14);
-            replayText.setFillColor(sf::Color(150,200,255));
-            float replayY = showSeed ? 69.f : 55.f;
-            replayText.setPosition(15.f, replayY);
-            window.draw(replayText);
-        }
-        if (exportingFrames || exportingVideo) {
-            std::string baseLabel = "Exportando: " + std::string(exportingFrames?"Frames":"") + (exportingFrames && exportingVideo?" & ":"") + std::string(exportingVideo?"Video":"");
-            std::string detail;
-            if (exportingVideo) {
-                detail = videoProgressLine;
-            }
-            if (exportingFrames && framesProgressTotal > 0) {
-                double pct = (double)framesProgressCurrent / (double)framesProgressTotal * 100.0;
-                std::ostringstream oss;
-                oss << "frames " << framesProgressCurrent << "/" << framesProgressTotal << " (" << std::fixed << std::setprecision(1) << pct << "%)";
-                if (!detail.empty()) detail += " | ";
-                detail += oss.str();
-            }
-            float secs = exportClock.getElapsedTime().asSeconds();
-            if (secs > 0.f) {
-                std::ostringstream mt;
-                if (exportingFrames && framesProgressCurrent > 0) {
-                    double fpsWrite = framesProgressCurrent / secs;
-                    mt << std::fixed << std::setprecision(1) << fpsWrite << " fps-save";
-                }
-                if (exportingVideo && !detail.empty()) {
-                    if (!mt.str().empty()) detail += " | ";
-                    mt << std::fixed << std::setprecision(1) << (secs) << "s";
-                }
-                if (!mt.str().empty()) {
-                    if (!detail.empty()) detail += " | ";
-                    detail += mt.str();
-                }
-            }
-            sf::Text expText(baseLabel + (detail.empty()?"":(" | " + detail)), font, 14);
-            expText.setFillColor(sf::Color(255,180,80));
-            float yBase = (recorder.isRecording() || rng.hasSeed()) ? (timedReplayActive ? 109.f : 89.f) : (timedReplayActive ? 95.f : 75.f);
-            expText.setPosition(15.f, yBase);
-            window.draw(expText);
-
-            float barStartY = yBase + 18.f;
-            float barWidth = 320.f;
-            float barHeight = 10.f;
-            if (exportingFrames && framesProgressTotal > 0) {
-                sf::RectangleShape bg(sf::Vector2f(barWidth, barHeight));
-                bg.setPosition(15.f, barStartY);
-                bg.setFillColor(sf::Color(60,60,60));
-                window.draw(bg);
-                float pctW = (float)framesProgressCurrent / (float)framesProgressTotal * barWidth;
-                sf::RectangleShape fg(sf::Vector2f(pctW, barHeight));
-                fg.setPosition(15.f, barStartY);
-                fg.setFillColor(sf::Color(100,200,100));
-                window.draw(fg);
-                barStartY += 14.f;
-            }
-            if (exportingVideo) {
-                size_t posFrame = videoProgressLine.find("frame ");
-                size_t slashPos = videoProgressLine.find('/');
-                double cur = 0, tot = 0;
-                if (posFrame != std::string::npos && slashPos != std::string::npos && slashPos > posFrame) {
-                    try { cur = std::stod(videoProgressLine.substr(posFrame+6, slashPos-(posFrame+6))); } catch(...){}
-                    size_t afterTot = videoProgressLine.find(' ', slashPos+1);
-                    if (afterTot == std::string::npos) afterTot = videoProgressLine.size();
-                    try { tot = std::stod(videoProgressLine.substr(slashPos+1, afterTot-(slashPos+1))); } catch(...){}
-                }
-                if (tot <= 0) tot = (double)vecViz.getCapturedFrameCount();
-                if (tot <= 0) tot = (double)vecViz.getCaptureLimit();
-                if (tot > 0) {
-                    sf::RectangleShape bg(sf::Vector2f(barWidth, barHeight));
-                    bg.setPosition(15.f, barStartY);
-                    bg.setFillColor(sf::Color(60,60,60));
-                    window.draw(bg);
-                    float pctW = (float)(cur / tot) * barWidth;
-                    sf::RectangleShape fg(sf::Vector2f(pctW, barHeight));
-                    fg.setPosition(15.f, barStartY);
-                    fg.setFillColor(sf::Color(200,180,100));
-                    window.draw(fg);
-                    barStartY += 14.f;
-                }
-                if (videoCancelRequested) {
-                    sf::Text cancelText("Cancelando...", font, 12);
-                    cancelText.setFillColor(sf::Color(255,100,100));
-                    cancelText.setPosition(15.f, barStartY);
-                    window.draw(cancelText);
-                }
-            }
-            if (framesCancelRequested) {
-                sf::Text cancelText("Cancelando frames...", font, 12);
-                cancelText.setFillColor(sf::Color(255,100,100));
-                cancelText.setPosition(15.f, barStartY);
-                window.draw(cancelText);
-            }
-        }
-        if (showLimitStatus) {
-            sf::Text limText("Limite: " + std::to_string(vecViz.getCaptureLimit()) + " frames (T)", font, 14);
-            limText.setFillColor(sf::Color(180,255,180));
-            float limYBase = timedReplayActive ? (showSeed ? 89.f : 75.f) : (showSeed ? 69.f : 55.f);
-            limText.setPosition(15.f, limYBase);
-            window.draw(limText);
-            showLimitStatus = false;
-        }
-
-        for (auto &s : subtitles) s.age += dt;
-        subtitles.erase(std::remove_if(subtitles.begin(), subtitles.end(), [SUBTITLE_DURATION](const Subtitle& s){ return s.age > SUBTITLE_DURATION; }), subtitles.end());
+    subtitleController.update(dt);
         float baseY = window.getSize().y - 30.f;
-        sf::Text subT("", font, 16);
-        for (int i = (int)subtitles.size()-1, line=0; i >=0; --i, ++line) {
-            const auto &s = subtitles[i];
-            float alphaRatio = std::max(0.f, SUBTITLE_DURATION - s.age) / SUBTITLE_DURATION;
+    sf::Text subT("", font, appstyle::HUD_MEDIUM);
+        for (int i = (int)subtitleController.get().size()-1, line=0; i >=0; --i, ++line) {
+            const auto &s = subtitleController.get()[i];
+            float alphaRatio = std::max(0.f, 3.5f - s.age) / 3.5f;
             sf::Color c(230,230,230, static_cast<sf::Uint8>(alphaRatio*255));
             subT.setFillColor(c);
             subT.setString(s.text);
@@ -530,39 +249,8 @@ int main() {
 
     window.display();
 
-        if (showHelpWindow && helpWindow && helpWindow->isOpen()) {
-            sf::Event hevent;
-            while (helpWindow->pollEvent(hevent)) {
-                if (hevent.type == sf::Event::Closed) {
-                    helpWindow->close();
-                    showHelpWindow = false;
-                }
-                if (hevent.type == sf::Event::KeyPressed && hevent.key.code == sf::Keyboard::Escape) {
-                    helpWindow->close(); showHelpWindow = false;
-                }
-            }
-            helpWindow->clear(sf::Color(25, 25, 25));
-            sf::Text header("Lista de Comandos", font, 24);
-            header.setFillColor(sf::Color(240,240,240));
-            header.setPosition(20.f, 15.f);
-            helpWindow->draw(header);
-
-            float y = 60.f;
-            sf::Text line("", font, 18);
-            for (const auto &p : COMMAND_HELP) {
-                line.setString("[" + p.first + "] " + p.second);
-                line.setFillColor(sf::Color(200,200,200));
-                line.setPosition(30.f, y);
-                helpWindow->draw(line);
-                y += 26.f;
-            }
-
-            sf::Text footer("ESC para fechar", font, 14);
-            footer.setFillColor(sf::Color(180,180,180));
-            footer.setPosition(30.f, helpWindow->getSize().y - 45.f);
-            helpWindow->draw(footer);
-            helpWindow->display();
-        }
+        helpController.processEvents();
+        helpController.render();
     }
 
     return 0;

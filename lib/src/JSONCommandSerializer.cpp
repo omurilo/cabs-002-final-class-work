@@ -32,48 +32,69 @@ bool JSONCommandSerializer::load(std::vector<CommandData>& commands, const std::
     std::ifstream ifs(filePath);
     if (!ifs) return false;
     std::stringstream buffer; buffer << ifs.rdbuf();
-    std::string content = buffer.str();
+    std::string json = buffer.str();
     commands.clear();
-    size_t pos = 0;
-    while (true) {
-        pos = content.find('{', pos);
-        if (pos == std::string::npos) break;
-        size_t endPos = content.find('}', pos);
-        if (endPos == std::string::npos) break;
-        std::string cmdStr = content.substr(pos + 1, endPos - pos - 1);
-        CommandData cmd;
-        size_t keyPos = 0;
-        while (true) {
-            size_t colonPos = cmdStr.find(':', keyPos);
-            if (colonPos == std::string::npos) break;
-            size_t commaPos = cmdStr.find(',', colonPos);
-            std::string key = cmdStr.substr(keyPos, colonPos - keyPos);
-            std::string value = (commaPos == std::string::npos) ? cmdStr.substr(colonPos + 1) : cmdStr.substr(colonPos + 1, commaPos - colonPos - 1);
-            key.erase(remove_if(key.begin(), key.end(), ::isspace), key.end());
-            value.erase(remove_if(value.begin(), value.end(), ::isspace), value.end());
-            if (!key.empty() && key.front() == '\"' && key.back() == '\"') key = key.substr(1, key.size() - 2);
-            if (!value.empty() && value.front() == '\"' && value.back() == '\"') value = value.substr(1, value.size() - 2);
-            if (key == "operation") cmd.operation = value;
-            else if (key == "target") cmd.target = value;
-            else if (key == "index") cmd.index = static_cast<size_t>(std::stoul(value));
-            else if (key == "value" || key == "valueString") {
-                try {
-                    if (!value.empty()) {
-                        size_t p = 0; bool neg = (value[0] == '-' || value[0] == '+');
-                        if (neg) p = 1;
-                        bool numeric = p < value.size();
-                        for (; p < value.size() && numeric; ++p) numeric = std::isdigit(static_cast<unsigned char>(value[p]));
-                        if (numeric) cmd.value = std::stoi(value);
-                        else cmd.valueString = value;
-                    }
-                } catch(...) { cmd.valueString = value; }
+
+    auto skipWS = [&](size_t& p){ while (p < json.size() && std::isspace((unsigned char)json[p])) ++p; };
+    size_t p=0; skipWS(p);
+    if (p < json.size() && json[p] == '{') {
+        size_t commandsKey = json.find("\"commands\"", p);
+        if (commandsKey != std::string::npos) {
+            size_t arrStart = json.find('[', commandsKey);
+            if (arrStart != std::string::npos) {
+                int depth = 0; size_t arrEnd = arrStart;
+                for (; arrEnd < json.size(); ++arrEnd) {
+                    if (json[arrEnd] == '[') depth++;
+                    else if (json[arrEnd] == ']') { depth--; if (depth==0) { ++arrEnd; break; } }
+                }
+                if (depth==0) {
+                    std::string arrayText = json.substr(arrStart, arrEnd - arrStart);
+                    json = arrayText;
+                }
             }
-            else if (key == "timestamp") cmd.timestamp = std::chrono::milliseconds(std::stoll(value));
-            if (commaPos == std::string::npos) break;
-            keyPos = commaPos + 1;
         }
-        commands.push_back(cmd);
-        pos = endPos + 1;
+    }
+
+    enum class State { SeekArray, InArray, InObject, Key, Colon, Value, CommaOrEnd };
+    State st = State::SeekArray;
+    size_t i = 0; CommandData current; std::string key; bool inString = false; std::string accum;
+    auto pushCommand = [&](){ commands.push_back(current); current = CommandData{}; };
+    auto trim = [](std::string s){ size_t b=0; while (b<s.size() && std::isspace((unsigned char)s[b])) ++b; size_t e=s.size(); while (e> b && std::isspace((unsigned char)s[e-1])) --e; return s.substr(b,e-b); };
+    auto parseValue = [&](const std::string& k, const std::string& raw){ std::string v = trim(raw); if (v.size()>=2 && v.front()=='"' && v.back()=='"') v = v.substr(1,v.size()-2); if (k=="operation") current.operation=v; else if(k=="target") current.target=v; else if(k=="index") { try { current.index = (size_t)std::stoull(v); } catch(...){} } else if(k=="value" || k=="valueString") { if(!v.empty()) { bool numeric=true; size_t p2=0; if(v[0]=='-'||v[0]=='+') p2=1; for(;p2<v.size();++p2) if(!std::isdigit((unsigned char)v[p2])) { numeric=false; break;} if(numeric){ try { current.value = std::stoi(v);} catch(...) { current.valueString = v;} } else { current.valueString = v; } } } else if(k=="timestamp") { try { current.timestamp = std::chrono::milliseconds(std::stoll(v)); } catch(...){} } };
+    while (i < json.size()) {
+        char c = json[i];
+        if (st == State::SeekArray) {
+            if (c == '[') st = State::InArray;
+        } else if (st == State::InArray) {
+            if (c == '{') { st = State::InObject; current = CommandData{}; }
+            else if (std::isspace((unsigned char)c) || c==',') { }
+            else if (c == ']') break;
+        } else if (st == State::InObject) {
+            if (c == '"') { inString=true; accum.clear(); st = State::Key; }
+            else if (c == '}') { pushCommand(); st = State::CommaOrEnd; }
+        } else if (st == State::Key) {
+            if (inString) {
+                if (c == '"') { inString=false; key = accum; st = State::Colon; }
+                else if (c == '\\' && i+1 < json.size()) { accum.push_back(json[i+1]); ++i; }
+                else accum.push_back(c);
+            }
+        } else if (st == State::Colon) {
+            if (c == ':') { st = State::Value; accum.clear(); inString=false; }
+        } else if (st == State::Value) {
+            if (!inString && c == '"') { inString=true; accum.clear(); }
+            else if (inString) {
+                if (c == '"') { inString=false; parseValue(key, '"'+accum+'"'); st = State::CommaOrEnd; }
+                else if (c=='\\' && i+1<json.size()) { accum.push_back(json[i+1]); ++i; }
+                else accum.push_back(c);
+            } else {
+                if (c==',' || c=='}') { parseValue(key, accum); if (c=='}'){ pushCommand(); st = State::CommaOrEnd; } else st = State::InObject; }
+                else if (!std::isspace((unsigned char)c)) accum.push_back(c);
+            }
+        } else if (st == State::CommaOrEnd) {
+            if (c == ',') st = State::InArray;
+            else if (c == ']') break;
+        }
+        ++i;
     }
     return true;
 }

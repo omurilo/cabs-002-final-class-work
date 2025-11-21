@@ -2,6 +2,7 @@
 #include "datastructures.hpp"
 #include "IModel.h"
 #include <memory>
+#include <string>
 
 class DataStructureModel : public IModel {
 public:
@@ -41,7 +42,8 @@ public:
 private:
     void notify() {
         const auto& st = m_impl->getState();
-        for (auto& fn : m_observers) fn(st);
+        DataState ds{&st, &m_labels};
+        for (auto& fn : m_observers) fn(ds);
     }
     std::unique_ptr<ds::AbstractDataStructure> m_impl;
     std::vector<ObserverFn> m_observers;
