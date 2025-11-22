@@ -51,7 +51,8 @@ namespace ds
                 ofs << "      \"value\": null,\n";
             }
 
-            ofs << "      \"timestamp\": " << cmd.timestamp.count() << "\n";
+            double timestampSeconds = cmd.timestamp.count() / 1000.0;
+            ofs << "      \"timestamp\": " << std::fixed << std::setprecision(3) << timestampSeconds << "\n";
             ofs << "    }";
             if (i + 1 < commands.size())
                 ofs << ",";
@@ -240,7 +241,8 @@ namespace ds
             {
                 try
                 {
-                    cmd.timestamp = std::chrono::milliseconds(std::stoll(timestampStr));
+                    double timestampSeconds = std::stod(timestampStr);
+                    cmd.timestamp = std::chrono::milliseconds(static_cast<long long>(timestampSeconds * 1000.0));
                 }
                 catch (...)
                 {

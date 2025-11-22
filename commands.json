@@ -18,133 +18,133 @@
       "target": "list",
       "index": null,
       "value": "start",
-      "timestamp": 15
+      "timestamp": 1
     },
     {
       "operation": "INSERT",
       "target": "vector", 
       "index": 2,
       "value": "25",
-      "timestamp": 30
+      "timestamp": 2
     },
     {
       "operation": "REMOVE",
       "target": "vector",
       "index": 1,
       "value": null,
-      "timestamp": 45
+      "timestamp": 3
     },
     {
       "operation": "INSERT FRONT",
       "target": "vector",
       "index": null,
       "value": "5",
-      "timestamp": 60
+      "timestamp": 4
     },
     {
       "operation": "REMOVE FRONT",
       "target": "list",
       "index": null,
       "value": null,
-      "timestamp": 75
+      "timestamp": 5
     },
     {
       "operation": "REMOVE BACK",
       "target": "vector",
       "index": null,
       "value": null,
-      "timestamp": 90
+      "timestamp": 10
     },
     {
       "operation": "INSERT BACK",
       "target": "list",
       "index": null,
       "value": "omega",
-      "timestamp": 105
+      "timestamp": 11
     },
     {
       "operation": "INSERT",
       "target": "list",
       "index": 1,
       "value": "delta",
-      "timestamp": 120
+      "timestamp": 12
     },
     {
       "operation": "INSERT BACK",
       "target": "vector",
       "index": null,
       "value": "50",
-      "timestamp": 135
+      "timestamp": 14
     },
     {
       "operation": "REMOVE",
       "target": "list",
       "index": 2,
       "value": null,
-      "timestamp": 150
+      "timestamp": 16
     },
     {
       "operation": "INSERT FRONT",
       "target": "list",
       "index": null,
       "value": "zero",
-      "timestamp": 165
+      "timestamp": 18
     },
     {
       "operation": "INSERT",
       "target": "vector",
       "index": 0,
       "value": "1",
-      "timestamp": 180
+      "timestamp": 20
     },
     {
       "operation": "REMOVE BACK",
       "target": "list",
       "index": null,
       "value": null,
-      "timestamp": 195
+      "timestamp": 22
     },
     {
       "operation": "INSERT BACK",
       "target": "vector",
       "index": null,
       "value": "100",
-      "timestamp": 210
+      "timestamp": 24
     },
     {
       "operation": "REMOVE FRONT",
       "target": "vector",
       "index": null,
       "value": null,
-      "timestamp": 225
+      "timestamp": 26
     },
     {
       "operation": "INSERT",
       "target": "list",
       "index": 2,
       "value": "sigma",
-      "timestamp": 240
+      "timestamp": 28
     },
     {
       "operation": "REMOVE",
       "target": "vector",
       "index": 2,
       "value": null,
-      "timestamp": 255
+      "timestamp": 30
     },
     {
       "operation": "INSERT FRONT",
       "target": "vector",
       "index": null,
       "value": "0",
-      "timestamp": 270
+      "timestamp": 32
     },
     {
       "operation": "REMOVE BACK",
       "target": "vector",
       "index": null,
       "value": null,
-      "timestamp": 285
+      "timestamp": 34
     }
   ]
 }
