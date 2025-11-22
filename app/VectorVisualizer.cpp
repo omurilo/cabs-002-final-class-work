@@ -1,4 +1,5 @@
 #include "VectorVisualizer.h"
+#include "AppStyle.h"
 #include <string>
 
 VectorVisualizer::VectorVisualizer(sf::Font& font, const sf::Vector2f& position)
@@ -25,7 +26,7 @@ void VectorVisualizer::clearAnimated() {
         for (size_t i = 0; i < m_nodes.size(); ++i) {
             enqueueAnimation(std::make_unique<ColorStep>(i, sf::Color(255,100,100), 0.15f));
         }
-        enqueueAnimation(std::make_unique<ClearAllStep>());
+        enqueueAnimation(std::make_unique<ClearAllStep>()); 
     });
 }
 
@@ -43,16 +44,32 @@ void VectorVisualizer::buildInsertAnimation(int value, size_t index) {
     }
 }
 
+void VectorVisualizer::buildInsertStringAnimation(const std::string& label, size_t index) {
+    if (index > m_nodes.size()) return;
+    size_t oldSize = m_nodes.size();
+    sf::Vector2f startPos = { getPositionForIndex(index).x, m_position.y - BOX_HEIGHT * 2 };
+    enqueueAnimation(std::make_unique<DataInsertStep>(0, index, startPos, label));
+    enqueueAnimation(std::make_unique<MoveStep>(index, getPositionForIndex(index)));
+    for (size_t i = index + 1; i <= oldSize; ++i) {
+        enqueueAnimation(std::make_unique<MoveStep>(i, getPositionForIndex(i)));
+    }
+    for (size_t i = 0; i <= oldSize; ++i) {
+        enqueueAnimation(std::make_unique<ColorStep>(i, sf::Color::Cyan));
+    }
+}
+
 void VectorVisualizer::buildRemoveAnimation(size_t index) {
     if (index >= m_nodes.size()) return;
 
     enqueueAnimation(std::make_unique<ColorStep>(index, sf::Color::Red));
     sf::Vector2f targetPos = { getPositionForIndex(index).x, m_position.y - BOX_HEIGHT * 2 };
     enqueueAnimation(std::make_unique<MoveStep>(index, targetPos, 0.4f));
-    enqueueAnimation(std::make_unique<DataRemoveStep>(index));
-    for (size_t i = index; i < m_nodes.size(); ++i) {
-        enqueueAnimation(std::make_unique<MoveStep>(i, getPositionForIndex(i)));
+    
+    for (size_t i = index + 1; i < m_nodes.size(); ++i) {
+        enqueueAnimation(std::make_unique<MoveStep>(i, getPositionForIndex(i - 1)));
     }
+    
+    enqueueAnimation(std::make_unique<DataRemoveStep>(index));
 }
 
 sf::Vector2f VectorVisualizer::getPositionForIndex(size_t i) const {
@@ -61,7 +78,7 @@ sf::Vector2f VectorVisualizer::getPositionForIndex(size_t i) const {
 }
 
 void VectorVisualizer::reflow(float windowWidth, float panelWidth) {
-    if (!isIdle()) return;
+    if (!isIdle()) return; 
     bool widthChanged = (windowWidth != m_lastLayoutWidth);
     bool countChanged = (m_lastNodeCount != m_nodes.size());
     if (!widthChanged && !countChanged) return;
@@ -73,7 +90,7 @@ void VectorVisualizer::reflow(float windowWidth, float panelWidth) {
     float stride = BOX_WIDTH + SPACING;
     int maxCols = static_cast<int>(available / stride);
     if (maxCols < 1) maxCols = 1;
-    float rowHeight = BOX_HEIGHT + 65.f;
+    float rowHeight = BOX_HEIGHT + 80.f; 
 
     for (size_t i = 0; i < m_nodes.size(); ++i) {
         int row = static_cast<int>(i / maxCols);
@@ -85,8 +102,8 @@ void VectorVisualizer::reflow(float windowWidth, float panelWidth) {
 }
 
 void VectorVisualizer::draw(sf::RenderWindow& window) const {
-    sf::Text title("std::vector (Array List)", m_font, 20);
-    title.setPosition(m_position.x, m_position.y - 40);
+    sf::Text title("std::vector (Array List)", m_font, appstyle::SUBTITLE);
+    title.setPosition(m_position.x, m_position.y - 80);
     title.setFillColor(sf::Color::White);
     window.draw(title);
 
@@ -98,13 +115,14 @@ void VectorVisualizer::draw(sf::RenderWindow& window) const {
         box.setOutlineColor(node.color);
         box.setOutlineThickness(2.f);
 
-    sf::Text valueText(std::to_string(node.value), m_font, FONT_SIZE);
+    std::string display = node.label.empty() ? std::to_string(node.value) : node.label;
+    sf::Text valueText(display, m_font, appstyle::VECTOR_NODE_VALUE);
         valueText.setFillColor(sf::Color::White);
         sf::FloatRect textBounds = valueText.getLocalBounds();
         valueText.setOrigin(textBounds.left + textBounds.width / 2.f, textBounds.top + textBounds.height / 2.f);
         valueText.setPosition(node.position.x + BOX_WIDTH / 2.f, node.position.y + BOX_HEIGHT / 2.f);
 
-    sf::Text indexText("[" + std::to_string(i) + "]", m_font, FONT_SIZE - 8);
+    sf::Text indexText("[" + std::to_string(i) + "]", m_font, appstyle::VECTOR_NODE_INDEX);
         indexText.setFillColor(sf::Color(180, 180, 180));
         sf::FloatRect indexBounds = indexText.getLocalBounds();
         indexText.setOrigin(indexBounds.left + indexBounds.width / 2.f, indexBounds.top);

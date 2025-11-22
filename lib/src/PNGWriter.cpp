@@ -13,7 +13,24 @@ namespace fs = std::filesystem;
 
 namespace ds {
 
-bool PNGWriter::save(const std::vector<RawImage>& frames,
+bool PNGWriter::exportFrame(const FrameData& frame, const std::string& path) const {
+    if (frame.width == 0 || frame.height == 0 || frame.pixels.empty()) {
+        return false;
+    }
+    
+    std::error_code ec;
+    auto parentPath = fs::path(path).parent_path();
+    if (!parentPath.empty()) {
+        fs::create_directories(parentPath, ec);
+        if (ec) return false;
+    }
+    
+    int stride = frame.width * 4;
+    int ok = stbi_write_png(path.c_str(), (int)frame.width, (int)frame.height, 4, frame.pixels.data(), stride);
+    return ok != 0;
+}
+
+bool PNGWriter::save(const std::vector<FrameData>& frames,
                      const std::string& dirPath,
                      const std::string& prefix,
                      EventFn onEvent,
@@ -37,8 +54,8 @@ bool PNGWriter::save(const std::vector<RawImage>& frames,
         const auto& img = frames[i];
         std::ostringstream fname; fname << prefix << '_' << std::setw(4) << std::setfill('0') << i << ".png";
         auto filePath = (fs::path(dirPath) / fname.str()).string();
-        int stride = img.width * 4;
-        int ok = stbi_write_png(filePath.c_str(), (int)img.width, (int)img.height, 4, img.pixels.data(), stride);
+        
+        bool ok = exportFrame(img, filePath);
         if (!ok) {
             if (onEvent) onEvent({ExportEventType::Error,i,total,(double)i*100.0/total,"Falha ao salvar: "+filePath});
         }
@@ -48,4 +65,4 @@ bool PNGWriter::save(const std::vector<RawImage>& frames,
     return true;
 }
 
-} // namespace ds
+} 

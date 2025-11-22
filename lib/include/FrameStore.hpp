@@ -1,18 +1,21 @@
 #pragma once
-#include "RawImage.hpp"
+#include "FrameData.hpp"
 #include "ExportEvents.hpp"
+#include "IImageExporter.hpp"
 #include <vector>
 #include <functional>
+#include <memory>
 
 namespace ds {
 
 class FrameStore {
 public:
-    using CaptureFn = std::function<RawImage()>; // fornecido pelo app
+    using CaptureFn = std::function<FrameData()>; 
     using EventFn = std::function<void(const ExportEvent&)>;
     using CancelFn = std::function<bool()>;
 
-    explicit FrameStore(size_t maxFrames = 900) : m_maxFrames(maxFrames) {}
+    explicit FrameStore(size_t maxFrames = 900, std::unique_ptr<IImageExporter> exporter = nullptr) 
+        : m_maxFrames(maxFrames), m_imageExporter(std::move(exporter)) {}
     void enable(bool on) { m_enabled = on; }
     bool enabled() const { return m_enabled; }
     size_t count() const { return m_frames.size(); }
@@ -29,7 +32,7 @@ public:
 
     void capture(CaptureFn fn) {
         if (!m_enabled) return;
-        RawImage img = fn();
+        FrameData img = fn();
         if (img.width == 0 || img.height == 0 || img.pixels.size() != img.width*img.height*4) return;
         if (m_frames.size() < m_maxFrames) {
             m_frames.push_back(std::move(img));
@@ -39,14 +42,39 @@ public:
         }
     }
 
-    const std::vector<RawImage>& frames() const { return m_frames; }
+    const std::vector<FrameData>& frames() const { return m_frames; }
+
+    
+    bool exportFrame(size_t index, const std::string& path) const {
+        if (!m_imageExporter || index >= m_frames.size()) return false;
+        return m_imageExporter->exportFrame(m_frames[index], path);
+    }
+
+    
+    bool exportAllFrames(const std::string& basePath, const std::string& prefix = "frame_") const {
+        if (!m_imageExporter) return false;
+        bool allSuccess = true;
+        for (size_t i = 0; i < m_frames.size(); ++i) {
+            std::string path = basePath + "/" + prefix + std::to_string(i) + ".png";
+            if (!m_imageExporter->exportFrame(m_frames[i], path)) {
+                allSuccess = false;
+            }
+        }
+        return allSuccess;
+    }
+
+    
+    void setImageExporter(std::unique_ptr<IImageExporter> exporter) {
+        m_imageExporter = std::move(exporter);
+    }
 
 private:
     size_t m_maxFrames;
     bool m_enabled = false;
     bool m_circular = false;
     size_t m_overwriteIndex = 0;
-    std::vector<RawImage> m_frames;
+    std::vector<FrameData> m_frames;
+    std::unique_ptr<IImageExporter> m_imageExporter; 
 };
 
 }

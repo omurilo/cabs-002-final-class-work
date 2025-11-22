@@ -27,7 +27,7 @@ std::optional<int> ArrayListStructure::access(size_t index) const {
 }
 
 void ArrayListStructure::shiftElements(size_t fromIndex, int dir) {
-    (void)fromIndex; (void)dir;
+    (void)fromIndex; (void)dir; 
 }
 
-} // namespace ds
+} 

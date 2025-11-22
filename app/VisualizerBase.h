@@ -25,10 +25,12 @@ public:
     virtual void draw(sf::RenderWindow& window) const override = 0;
 
 protected:
-    std::vector<VisualNode> m_nodes;
-    std::deque<std::unique_ptr<AnimationStep>> m_animationQueue;
-    std::deque<Command> m_operationQueue;
+    
+    std::vector<VisualNode> m_nodes; 
+    std::deque<std::unique_ptr<AnimationStep>> m_animationQueue; 
+    std::deque<Command> m_operationQueue; 
 
+    
     void enqueueAnimation(std::unique_ptr<AnimationStep> step) { m_animationQueue.push_back(std::move(step)); }
     void enqueueOperation(const std::string& description, std::function<void()> action) {
         m_operationQueue.push_back(Command{description, std::move(action)});

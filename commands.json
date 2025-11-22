@@ -1,0 +1,15 @@
+{
+  "META": {"version": "1.0.0", "seed": 755569820},
+  "commands": [
+    {"operation":"INSERT","target":"vector","index":0,"value":"h","timestamp":0},
+    {"operation":"INSERT","target":"list","index":0,"value":"w","timestamp":405},
+    {"operation":"INSERT","target":"vector","index":1,"value":"e","timestamp":917},
+    {"operation":"INSERT","target":"list","index":1,"value":"o","timestamp":1356},
+    {"operation":"INSERT","target":"vector","index":2,"value":"l","timestamp":1880},
+    {"operation":"INSERT","target":"list","index":2,"value":"r","timestamp":2323},
+    {"operation":"INSERT","target":"vector","index":3,"value":"l","timestamp":2760},
+    {"operation":"INSERT","target":"list","index":3,"value":"l","timestamp":3376},
+    {"operation":"INSERT","target":"vector","index":4,"value":"o","timestamp":3849},
+    {"operation":"INSERT","target":"list","index":4,"value":"d","timestamp":4692}
+  ]
+}

@@ -1,7 +1,7 @@
 #pragma once
 #include <string>
 #include <memory>
-#include "../lib/include/datastructures.hpp"
+#include "datastructures.hpp" 
 
 class StructureFactory {
 public:

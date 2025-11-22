@@ -1,3 +1,8 @@
+/* Minimal PNG writer (public domain) - supports 8-bit RGBA only.
+ * This replaces the previous stub and provides a functional encoder
+ * without external dependencies. It writes non-compressed deflate blocks
+ * inside a zlib stream (can be larger than optimal but acceptable for
+ * moderate frame counts). Segments data in 64KB chunks. */
 #ifndef STB_IMAGE_WRITE_MIN_PNG
 #define STB_IMAGE_WRITE_MIN_PNG
 #include <stdio.h>
