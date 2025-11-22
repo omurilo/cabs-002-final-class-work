@@ -24,7 +24,11 @@ public:
         const auto& cmds = m_recorder->get();
         if (m_index < cmds.size()) {
             m_clock = cmds[m_index].t;
-            m_paused = false; 
+            if (m_apply) m_apply(cmds[m_index]);
+            ++m_index;
+        }
+        if (m_index >= cmds.size()) {
+            m_active = false;
         }
     }
     void speedHalf() { m_speed = std::max(0.1f, m_speed * 0.5f); }
@@ -35,8 +39,12 @@ public:
         if (!m_paused) m_clock += dt * m_speed;
         const auto& cmds = m_recorder->get();
         while (m_index < cmds.size() && cmds[m_index].t <= m_clock) {
+            double currentT = cmds[m_index].t;
             if (m_apply) m_apply(cmds[m_index]);
             ++m_index;
+            if (m_index < cmds.size() && cmds[m_index].t < currentT) {
+                m_clock = currentT + 0.0001;
+            }
         }
         if (m_index >= cmds.size()) {
             m_active = false;

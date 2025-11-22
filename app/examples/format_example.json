@@ -1,0 +1,66 @@
+{
+  "META": {
+    "version": "1.0.0", 
+    "seed": 123456789
+  },
+  "vectorValues": ["10", "20", "30"],
+  "listValues": ["alpha", "beta", "gamma"],
+  "commands": [
+    {
+      "operation": "INSERT BACK",
+      "target": "vector",
+      "index": null,
+      "value": "40",
+      "timestamp": 0
+    },
+    {
+      "operation": "INSERT FRONT", 
+      "target": "list",
+      "index": null,
+      "value": "start",
+      "timestamp": 15
+    },
+    {
+      "operation": "INSERT",
+      "target": "vector", 
+      "index": 2,
+      "value": "25",
+      "timestamp": 30
+    },
+    {
+      "operation": "REMOVE",
+      "target": "vector",
+      "index": 1,
+      "value": null,
+      "timestamp": 45
+    },
+    {
+      "operation": "INSERT FRONT",
+      "target": "vector",
+      "index": null,
+      "value": "5",
+      "timestamp": 60
+    },
+    {
+      "operation": "REMOVE FRONT",
+      "target": "list",
+      "index": null,
+      "value": null,
+      "timestamp": 75
+    },
+    {
+      "operation": "REMOVE BACK",
+      "target": "vector",
+      "index": null,
+      "value": null,
+      "timestamp": 90
+    },
+    {
+      "operation": "CLEAR",
+      "target": "list",
+      "index": null,
+      "value": null,
+      "timestamp": 105
+    }
+  ]
+}

@@ -59,6 +59,8 @@ public:
     const std::vector<DataValue>& state() const override { return m_values; }
     
     void attach(ObserverFn fn) override { m_observers.push_back(fn); }
+
+    void detachAll() { m_observers.clear(); }
     
 private:
     void notify() {

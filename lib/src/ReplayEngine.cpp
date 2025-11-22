@@ -23,10 +23,18 @@ void ReplayEngine::advance(double dt) {
         const auto& c = m_commands[m_cursor];
         double cmdTimeSec = c.timestamp.count() / 1000.0; 
         if (cmdTimeSec <= m_elapsed) {
-            if (c.operation == "INSERT" && m_onInsert) m_onInsert(c);
-            else if (c.operation == "REMOVE" && m_onRemove) m_onRemove(c);
-            else if (c.operation == "HIGHLIGHT" && m_onHighlight) m_onHighlight(c);
-            else if (c.operation == "CLEAR" && m_onClear) m_onClear(c);
+            if ((c.operation == "INSERT" || c.operation == "INSERT BACK" || c.operation == "INSERT FRONT") && m_onInsert) {
+                m_onInsert(c);
+            }
+            else if ((c.operation == "REMOVE" || c.operation == "REMOVE FRONT" || c.operation == "REMOVE BACK") && m_onRemove) {
+                m_onRemove(c);
+            }
+            else if (c.operation == "HIGHLIGHT" && m_onHighlight) {
+                m_onHighlight(c);
+            }
+            else if (c.operation == "CLEAR" && m_onClear) {
+                m_onClear(c);
+            }
             ++m_cursor;
         } else {
             break;

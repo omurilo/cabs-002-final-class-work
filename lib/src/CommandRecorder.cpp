@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <fstream>
 #include <sstream>
+#include <iostream>
 
 namespace ds {
 
@@ -40,107 +41,34 @@ void CommandRecorder::record(const std::string& op, const std::string& target,
 }
 
 bool CommandRecorder::save(const std::string& filename) {
-    std::ofstream ofs(filename);
-    if (!ofs) return false;
-    ofs << "{\n";
-    ofs << "  \"META\": {\"version\": \"" << DS_VERSION_STRING << "\", \"seed\": " << m_seed << "},\n";
-    ofs << "  \"commands\": [\n";
-    for (size_t i = 0; i < m_recorded.size(); ++i) {
-        const auto& rc = m_recorded[i];
-        auto ms = static_cast<long long>(rc.t * 1000.0);
-        ofs << "    {";
-        ofs << "\"operation\":\"" << rc.op << "\",";
-        ofs << "\"target\":\"" << rc.target << "\",";
-        ofs << "\"index\":" << rc.index << ",";
+    if (!m_serializer) return false;
+    
+    std::vector<CommandData> commands;
+    for (const auto& rc : m_recorded) {
+        CommandData cmd;
+        cmd.operation = rc.op;
+        cmd.target = rc.target;
+        cmd.index = rc.index;
+        cmd.timestamp = std::chrono::milliseconds(static_cast<long long>(rc.t * 1000.0));
+        
         if (rc.hasLabel) {
-            ofs << "\"value\":\"" << rc.label << "\",";
+            cmd.valueString = rc.label;
         } else if (rc.hasValue) {
-            ofs << "\"value\":" << rc.value << ",";
+            cmd.value = rc.value;
         }
-        ofs << "\"timestamp\":" << ms;
-        ofs << "}";
-        if (i + 1 < m_recorded.size()) ofs << ",";
-        ofs << "\n";
+        
+        commands.push_back(cmd);
     }
-    ofs << "  ]\n";
-    ofs << "}\n";
-    return true;
+    return m_serializer->save(commands, filename);
 }
 
 bool CommandRecorder::load(const std::string& filename) {
-    std::ifstream ifs(filename);
-    if (!ifs) return false;
-    std::stringstream buffer; buffer << ifs.rdbuf();
-    std::string content = buffer.str();
+    if (!m_serializer) return false;
     
-    m_seed = 0;
-    auto seedPos = content.find("\"seed\"");
-    if (seedPos != std::string::npos) {
-        auto colon = content.find(':', seedPos);
-        if (colon != std::string::npos) {
-            auto numberStart = content.find_first_of("0123456789", colon + 1);
-            if (numberStart != std::string::npos) {
-                auto numberEnd = content.find_first_not_of("0123456789", numberStart);
-                std::string num = (numberEnd == std::string::npos)
-                                  ? content.substr(numberStart)
-                                  : content.substr(numberStart, numberEnd - numberStart);
-                try { m_seed = static_cast<unsigned int>(std::stoul(num)); } catch(...) { m_seed = 0; }
-            }
-        }
-    }
-    
-    auto cmdsKey = content.find("\"commands\"");
-    if (cmdsKey == std::string::npos) return false;
-    auto arrayStart = content.find('[', cmdsKey);
-    if (arrayStart == std::string::npos) return false;
-    auto arrayEnd = content.find(']', arrayStart);
-    if (arrayEnd == std::string::npos) return false;
-    std::string arrayBlock = content.substr(arrayStart + 1, arrayEnd - arrayStart - 1);
+    std::vector<CommandData> loaded;
+    if (!m_serializer->load(loaded, filename)) return false;
     
     m_recorded.clear();
-    size_t pos = 0;
-    std::vector<CommandData> loaded;
-    while (true) {
-        auto objStart = arrayBlock.find('{', pos);
-        if (objStart == std::string::npos) break;
-        auto objEnd = arrayBlock.find('}', objStart);
-        if (objEnd == std::string::npos) break;
-        std::string obj = arrayBlock.substr(objStart + 1, objEnd - objStart - 1);
-        CommandData cmd; cmd.timestamp = std::chrono::milliseconds(0);
-        size_t kpos = 0;
-        while (true) {
-            auto colon = obj.find(':', kpos);
-            if (colon == std::string::npos) break;
-            auto comma = obj.find(',', colon + 1);
-            std::string key = obj.substr(kpos, colon - kpos);
-            std::string val = (comma == std::string::npos) ? obj.substr(colon + 1) : obj.substr(colon + 1, comma - colon - 1);
-            key.erase(remove_if(key.begin(), key.end(), ::isspace), key.end());
-            val.erase(remove_if(val.begin(), val.end(), ::isspace), val.end());
-            if (!key.empty() && key.front() == '"' && key.back() == '"') key = key.substr(1, key.size()-2);
-            if (!val.empty() && val.front() == '"' && val.back() == '"') val = val.substr(1, val.size()-2);
-            if (key == "operation") cmd.operation = val;
-            else if (key == "target") cmd.target = val;
-            else if (key == "index") cmd.index = static_cast<size_t>(std::stoul(val));
-            else if (key == "value" || key == "valueString") {
-                
-                try {
-                    if (!val.empty()) {
-                        size_t p = 0; bool neg = (val[0] == '-' || val[0] == '+');
-                        if (neg) p = 1;
-                        bool numeric = p < val.size();
-                        for (; p < val.size() && numeric; ++p) numeric = std::isdigit(static_cast<unsigned char>(val[p]));
-                        if (numeric) cmd.value = std::stoi(val);
-                        else cmd.valueString = val; 
-                    }
-                } catch(...) { cmd.valueString = val; }
-            }
-            else if (key == "timestamp") cmd.timestamp = std::chrono::milliseconds(std::stoll(val));
-            if (comma == std::string::npos) break;
-            kpos = comma + 1;
-        }
-        loaded.push_back(cmd);
-        pos = objEnd + 1;
-    }
     long long minMs = loaded.empty() ? 0 : loaded.front().timestamp.count();
     for (auto& cmd : loaded) {
         double t = (cmd.timestamp.count() - minMs) / 1000.0;
@@ -151,6 +79,24 @@ bool CommandRecorder::load(const std::string& filename) {
         m_recorded.push_back(RecordedCommand{t, cmd.operation, cmd.target, cmd.index, hasVal, stored, hasLab, label});
     }
     return true;
+}
+
+std::vector<std::string> CommandRecorder::getVectorValues() const {
+    if (m_serializer) {
+        if (auto* jsonSerializer = dynamic_cast<JSONCommandSerializer*>(m_serializer.get())) {
+            return jsonSerializer->getVectorValues();
+        }
+    }
+    return {};
+}
+
+std::vector<std::string> CommandRecorder::getListValues() const {
+    if (m_serializer) {
+        if (auto* jsonSerializer = dynamic_cast<JSONCommandSerializer*>(m_serializer.get())) {
+            return jsonSerializer->getListValues();
+        }
+    }
+    return {};
 }
 
 } 

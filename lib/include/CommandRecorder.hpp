@@ -55,6 +55,9 @@ namespace ds {
 
         
         const std::vector<RecordedCommand>& get() const { return m_recorded; }
+        
+        std::vector<std::string> getVectorValues() const;
+        std::vector<std::string> getListValues() const;
             
             std::vector<CommandData> getCommands() const {
                 std::vector<CommandData> out; out.reserve(m_recorded.size());

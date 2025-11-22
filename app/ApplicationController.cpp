@@ -3,10 +3,36 @@
 #include "CommandPanelView.h"
 #include <iostream>
 #include <filesystem>
+#include <algorithm>
 
 ApplicationController::ApplicationController()
     : m_window(sf::VideoMode(1400, 800), "Visualizador Animado de Estruturas de Dados") {
     m_window.setFramerateLimit(60);
+}
+
+ApplicationController::~ApplicationController() {
+    std::cerr << "[Shutdown] Iniciando destrutor ApplicationController" << std::endl;
+    if (m_exportController) {
+        m_exportController->shutdown();
+        std::cerr << "[Shutdown] ExportController finalizado" << std::endl;
+    }
+    if (m_subtitleModel) m_subtitleModel->detachAll();
+    if (m_hudModel) m_hudModel->detachAll();
+    if (m_exportStatusModel) m_exportStatusModel->detachAll();
+    if (m_replayModel) m_replayModel->detachAll();
+    if (m_vectorModel) m_vectorModel->detachAll();
+    if (m_listModel) m_listModel->detachAll();
+
+    m_subtitleView.reset();
+    m_hudView.reset();
+    m_vectorView.reset();
+    m_listView.reset();
+    m_replayController.reset();
+    m_vectorController.reset();
+    m_listController.reset();
+    m_inputController.reset();
+    m_helpController.reset();
+    std::cerr << "[Shutdown] Destrutor ApplicationController concluído" << std::endl;
 }
 
 bool ApplicationController::initialize() {
@@ -118,13 +144,31 @@ void ApplicationController::setupControllers() {
                 if (cmd.op == "INSERT" && (cmd.hasValue || cmd.hasLabel)) {
                     if (cmd.hasLabel) m_vectorController->insertAtString(cmd.index, cmd.label);
                     else m_vectorController->insertAt(cmd.index, cmd.value);
+                } else if (cmd.op == "INSERT BACK" && (cmd.hasValue || cmd.hasLabel)) {
+                    if (cmd.hasLabel) m_vectorController->insertBackString(cmd.label);
+                    else m_vectorController->insertBack(cmd.value);
+                } else if (cmd.op == "INSERT FRONT" && (cmd.hasValue || cmd.hasLabel)) {
+                    if (cmd.hasLabel) m_vectorController->insertFrontString(cmd.label);
+                    else m_vectorController->insertFront(cmd.value);
                 } else if (cmd.op == "REMOVE") m_vectorController->removeAt(cmd.index);
+                else if (cmd.op == "REMOVE BACK") m_vectorController->removeBack();
+                else if (cmd.op == "REMOVE FRONT") m_vectorController->removeFront();
+                else if (cmd.op == "CLEAR") m_vectorController->clear();
                 else if (cmd.op == "HIGHLIGHT") m_vectorController->highlightAt(cmd.index);
             } else if (cmd.target == "list") {
                 if (cmd.op == "INSERT" && (cmd.hasValue || cmd.hasLabel)) {
                     if (cmd.hasLabel) m_listController->insertAtString(cmd.index, cmd.label);
                     else m_listController->insertAt(cmd.index, cmd.value);
+                } else if (cmd.op == "INSERT BACK" && (cmd.hasValue || cmd.hasLabel)) {
+                    if (cmd.hasLabel) m_listController->insertBackString(cmd.label);
+                    else m_listController->insertBack(cmd.value);
+                } else if (cmd.op == "INSERT FRONT" && (cmd.hasValue || cmd.hasLabel)) {
+                    if (cmd.hasLabel) m_listController->insertFrontString(cmd.label);
+                    else m_listController->insertFront(cmd.value);
                 } else if (cmd.op == "REMOVE") m_listController->removeAt(cmd.index);
+                else if (cmd.op == "REMOVE BACK") m_listController->removeBack();
+                else if (cmd.op == "REMOVE FRONT") m_listController->removeFront();
+                else if (cmd.op == "CLEAR") m_listController->clear();
                 else if (cmd.op == "HIGHLIGHT") m_listController->highlightAt(cmd.index);
             }
             pushSubtitle("Temporal:" + cmd.op + " " + cmd.target);
@@ -201,6 +245,42 @@ void ApplicationController::autoLoadCommands() {
     if (std::filesystem::exists(recordJSON)) {
         if (m_recorder->load(recordJSON)) {
             std::cout << "[AutoReplay] Carregado " << m_recorder->get().size() << " comandos de '" << recordJSON << "'\n";
+            
+            auto vectorValues = m_recorder->getVectorValues();
+            auto listValues = m_recorder->getListValues();
+            
+            for (const auto& value : vectorValues) {
+                try {
+                    bool isNumeric = !value.empty() && std::all_of(value.begin(), value.end(), [](char c) { return std::isdigit(c) || c == '-'; });
+                    if (isNumeric) {
+                        int intValue = std::stoi(value);
+                        m_vectorController->insertBack(intValue);
+                    } else {
+                        m_vectorController->insertBackString(value);
+                    }
+                } catch (...) {
+                    m_vectorController->insertBackString(value);
+                }
+            }
+            
+            for (const auto& value : listValues) {
+                try {
+                    bool isNumeric = !value.empty() && std::all_of(value.begin(), value.end(), [](char c) { return std::isdigit(c) || c == '-'; });
+                    if (isNumeric) {
+                        int intValue = std::stoi(value);
+                        m_listController->insertBack(intValue);
+                    } else {
+                        m_listController->insertBackString(value);
+                    }
+                } catch (...) {
+                    m_listController->insertBackString(value);
+                }
+            }
+            
+            if (!vectorValues.empty() || !listValues.empty()) {
+                std::cout << "[AutoReplay] Carregados " << vectorValues.size() << " valores no vector e " 
+                          << listValues.size() << " valores na lista\n";
+            }
         } else {
             std::cout << "[AutoReplay] Falha ao carregar '" << recordJSON << "'\n";
         }
@@ -258,12 +338,12 @@ void ApplicationController::update(float deltaTime) {
     
     if (m_replayController) {
         m_replayController->update(deltaTime);
-        
-        if (m_replayController->active()) {
-            m_hudModel->setReplayState(true, m_replayController->clock(), false, 1.0f);
-        } else {
-            m_hudModel->setReplayState(false, 0.0f, false, 1.0f);
-        }
+        m_hudModel->setReplayState(
+            m_replayController->active(),
+            m_replayController->clock(),
+            m_replayController->paused(),
+            m_replayController->speed()
+        );
     }
     
     m_hudModel->setRecording(m_recorder->isRecording());

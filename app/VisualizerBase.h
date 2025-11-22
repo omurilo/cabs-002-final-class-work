@@ -1,5 +1,6 @@
 #pragma once
 #include "AnimationStep.h"
+#include "VisualNode.h"
 #include "Command.h"
 #include <deque>
 #include <memory>

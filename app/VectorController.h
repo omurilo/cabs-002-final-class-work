@@ -79,6 +79,56 @@ public:
         if (!m_model || !m_view || idx>=m_model->size()) return;
         m_view->animateHighlight(idx);
     }
+    
+    void insertBack(int val) {
+        if (!m_model || !m_view) return;
+        size_t idx = m_model->size();
+        
+        m_view->animateInsert(val, idx);
+        m_model->insert(idx, DataValue(val));
+        record("INSERT BACK", 0, val);
+    }
+    void insertBackString(const std::string& label) {
+        if (!m_model || !m_view) return;
+        size_t idx = m_model->size();
+        
+        m_view->animateInsertString(label, idx);
+        if (auto* concrete = dynamic_cast<DataStructureModel*>(m_model)) {
+            concrete->insertString(idx, label);
+        }
+        record("INSERT BACK", 0, std::nullopt);
+    }
+    void insertFront(int val) {
+        if (!m_model || !m_view) return;
+        
+        m_view->animateInsert(val, 0);
+        m_model->insert(0, DataValue(val));
+        record("INSERT FRONT", 0, val);
+    }
+    void insertFrontString(const std::string& label) {
+        if (!m_model || !m_view) return;
+        
+        m_view->animateInsertString(label, 0);
+        if (auto* concrete = dynamic_cast<DataStructureModel*>(m_model)) {
+            concrete->insertString(0, label);
+        }
+        record("INSERT FRONT", 0, std::nullopt);
+    }
+    void removeBack() {
+        if (!m_model || !m_view || m_model->size() == 0) return;
+        size_t idx = m_model->size() - 1;
+        
+        m_view->animateRemove(idx);
+        m_model->remove(idx);
+        record("REMOVE BACK", 0, std::nullopt);
+    }
+    void removeFront() {
+        if (!m_model || !m_view || m_model->size() == 0) return;
+        
+        m_view->animateRemove(0);
+        m_model->remove(0);
+        record("REMOVE FRONT", 0, std::nullopt);
+    }
 private:
     void record(const std::string& op, size_t idx, std::optional<int> val) {
         if (m_recorder && m_recorder->isRecording()) m_recorder->record(op, m_target, idx, val);

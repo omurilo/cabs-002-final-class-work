@@ -1,15 +1,150 @@
 {
-  "META": {"version": "1.0.0", "seed": 755569820},
+  "META": {
+    "version": "1.0.0", 
+    "seed": 123456789
+  },
+  "vectorValues": ["10", "20", "30"],
+  "listValues": ["alpha", "beta", "gamma"],
   "commands": [
-    {"operation":"INSERT","target":"vector","index":0,"value":"h","timestamp":0},
-    {"operation":"INSERT","target":"list","index":0,"value":"w","timestamp":405},
-    {"operation":"INSERT","target":"vector","index":1,"value":"e","timestamp":917},
-    {"operation":"INSERT","target":"list","index":1,"value":"o","timestamp":1356},
-    {"operation":"INSERT","target":"vector","index":2,"value":"l","timestamp":1880},
-    {"operation":"INSERT","target":"list","index":2,"value":"r","timestamp":2323},
-    {"operation":"INSERT","target":"vector","index":3,"value":"l","timestamp":2760},
-    {"operation":"INSERT","target":"list","index":3,"value":"l","timestamp":3376},
-    {"operation":"INSERT","target":"vector","index":4,"value":"o","timestamp":3849},
-    {"operation":"INSERT","target":"list","index":4,"value":"d","timestamp":4692}
+    {
+      "operation": "INSERT BACK",
+      "target": "vector",
+      "index": null,
+      "value": "40",
+      "timestamp": 0
+    },
+    {
+      "operation": "INSERT FRONT", 
+      "target": "list",
+      "index": null,
+      "value": "start",
+      "timestamp": 1
+    },
+    {
+      "operation": "INSERT",
+      "target": "vector", 
+      "index": 2,
+      "value": "25",
+      "timestamp": 2
+    },
+    {
+      "operation": "REMOVE",
+      "target": "vector",
+      "index": 1,
+      "value": null,
+      "timestamp": 3
+    },
+    {
+      "operation": "INSERT FRONT",
+      "target": "vector",
+      "index": null,
+      "value": "5",
+      "timestamp": 4
+    },
+    {
+      "operation": "REMOVE FRONT",
+      "target": "list",
+      "index": null,
+      "value": null,
+      "timestamp": 5
+    },
+    {
+      "operation": "REMOVE BACK",
+      "target": "vector",
+      "index": null,
+      "value": null,
+      "timestamp": 10
+    },
+    {
+      "operation": "INSERT BACK",
+      "target": "list",
+      "index": null,
+      "value": "omega",
+      "timestamp": 11
+    },
+    {
+      "operation": "INSERT",
+      "target": "list",
+      "index": 1,
+      "value": "delta",
+      "timestamp": 12
+    },
+    {
+      "operation": "INSERT BACK",
+      "target": "vector",
+      "index": null,
+      "value": "50",
+      "timestamp": 14
+    },
+    {
+      "operation": "REMOVE",
+      "target": "list",
+      "index": 2,
+      "value": null,
+      "timestamp": 16
+    },
+    {
+      "operation": "INSERT FRONT",
+      "target": "list",
+      "index": null,
+      "value": "zero",
+      "timestamp": 18
+    },
+    {
+      "operation": "INSERT",
+      "target": "vector",
+      "index": 0,
+      "value": "1",
+      "timestamp": 20
+    },
+    {
+      "operation": "REMOVE BACK",
+      "target": "list",
+      "index": null,
+      "value": null,
+      "timestamp": 22
+    },
+    {
+      "operation": "INSERT BACK",
+      "target": "vector",
+      "index": null,
+      "value": "100",
+      "timestamp": 24
+    },
+    {
+      "operation": "REMOVE FRONT",
+      "target": "vector",
+      "index": null,
+      "value": null,
+      "timestamp": 26
+    },
+    {
+      "operation": "INSERT",
+      "target": "list",
+      "index": 2,
+      "value": "sigma",
+      "timestamp": 28
+    },
+    {
+      "operation": "REMOVE",
+      "target": "vector",
+      "index": 2,
+      "value": null,
+      "timestamp": 30
+    },
+    {
+      "operation": "INSERT FRONT",
+      "target": "vector",
+      "index": null,
+      "value": "0",
+      "timestamp": 32
+    },
+    {
+      "operation": "REMOVE BACK",
+      "target": "vector",
+      "index": null,
+      "value": null,
+      "timestamp": 34
+    }
   ]
 }
