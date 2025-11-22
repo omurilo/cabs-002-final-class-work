@@ -3,6 +3,7 @@
 #include "CommandPanelView.h"
 #include <iostream>
 #include <filesystem>
+#include <algorithm>
 
 ApplicationController::ApplicationController()
     : m_window(sf::VideoMode(1400, 800), "Visualizador Animado de Estruturas de Dados") {
@@ -118,13 +119,31 @@ void ApplicationController::setupControllers() {
                 if (cmd.op == "INSERT" && (cmd.hasValue || cmd.hasLabel)) {
                     if (cmd.hasLabel) m_vectorController->insertAtString(cmd.index, cmd.label);
                     else m_vectorController->insertAt(cmd.index, cmd.value);
+                } else if (cmd.op == "INSERT BACK" && (cmd.hasValue || cmd.hasLabel)) {
+                    if (cmd.hasLabel) m_vectorController->insertBackString(cmd.label);
+                    else m_vectorController->insertBack(cmd.value);
+                } else if (cmd.op == "INSERT FRONT" && (cmd.hasValue || cmd.hasLabel)) {
+                    if (cmd.hasLabel) m_vectorController->insertFrontString(cmd.label);
+                    else m_vectorController->insertFront(cmd.value);
                 } else if (cmd.op == "REMOVE") m_vectorController->removeAt(cmd.index);
+                else if (cmd.op == "REMOVE BACK") m_vectorController->removeBack();
+                else if (cmd.op == "REMOVE FRONT") m_vectorController->removeFront();
+                else if (cmd.op == "CLEAR") m_vectorController->clear();
                 else if (cmd.op == "HIGHLIGHT") m_vectorController->highlightAt(cmd.index);
             } else if (cmd.target == "list") {
                 if (cmd.op == "INSERT" && (cmd.hasValue || cmd.hasLabel)) {
                     if (cmd.hasLabel) m_listController->insertAtString(cmd.index, cmd.label);
                     else m_listController->insertAt(cmd.index, cmd.value);
+                } else if (cmd.op == "INSERT BACK" && (cmd.hasValue || cmd.hasLabel)) {
+                    if (cmd.hasLabel) m_listController->insertBackString(cmd.label);
+                    else m_listController->insertBack(cmd.value);
+                } else if (cmd.op == "INSERT FRONT" && (cmd.hasValue || cmd.hasLabel)) {
+                    if (cmd.hasLabel) m_listController->insertFrontString(cmd.label);
+                    else m_listController->insertFront(cmd.value);
                 } else if (cmd.op == "REMOVE") m_listController->removeAt(cmd.index);
+                else if (cmd.op == "REMOVE BACK") m_listController->removeBack();
+                else if (cmd.op == "REMOVE FRONT") m_listController->removeFront();
+                else if (cmd.op == "CLEAR") m_listController->clear();
                 else if (cmd.op == "HIGHLIGHT") m_listController->highlightAt(cmd.index);
             }
             pushSubtitle("Temporal:" + cmd.op + " " + cmd.target);
@@ -201,6 +220,47 @@ void ApplicationController::autoLoadCommands() {
     if (std::filesystem::exists(recordJSON)) {
         if (m_recorder->load(recordJSON)) {
             std::cout << "[AutoReplay] Carregado " << m_recorder->get().size() << " comandos de '" << recordJSON << "'\n";
+            
+            // Carregar valores iniciais automaticamente
+            auto vectorValues = m_recorder->getVectorValues();
+            auto listValues = m_recorder->getListValues();
+            
+            // Carregar valores do vector
+            for (const auto& value : vectorValues) {
+                try {
+                    // Verificar se é numérico
+                    bool isNumeric = !value.empty() && std::all_of(value.begin(), value.end(), [](char c) { return std::isdigit(c) || c == '-'; });
+                    if (isNumeric) {
+                        int intValue = std::stoi(value);
+                        m_vectorController->insertBack(intValue);
+                    } else {
+                        m_vectorController->insertBackString(value);
+                    }
+                } catch (...) {
+                    m_vectorController->insertBackString(value);
+                }
+            }
+            
+            // Carregar valores da lista
+            for (const auto& value : listValues) {
+                try {
+                    // Verificar se é numérico
+                    bool isNumeric = !value.empty() && std::all_of(value.begin(), value.end(), [](char c) { return std::isdigit(c) || c == '-'; });
+                    if (isNumeric) {
+                        int intValue = std::stoi(value);
+                        m_listController->insertBack(intValue);
+                    } else {
+                        m_listController->insertBackString(value);
+                    }
+                } catch (...) {
+                    m_listController->insertBackString(value);
+                }
+            }
+            
+            if (!vectorValues.empty() || !listValues.empty()) {
+                std::cout << "[AutoReplay] Carregados " << vectorValues.size() << " valores no vector e " 
+                          << listValues.size() << " valores na lista\n";
+            }
         } else {
             std::cout << "[AutoReplay] Falha ao carregar '" << recordJSON << "'\n";
         }

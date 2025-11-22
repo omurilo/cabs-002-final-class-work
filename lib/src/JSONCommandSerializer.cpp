@@ -2,104 +2,259 @@
 #include <fstream>
 #include <sstream>
 #include <iomanip>
+#include <iostream>
+#include <algorithm>
 
-namespace ds {
-bool JSONCommandSerializer::save(const std::vector<CommandData>& commands, const std::string& filePath) {
-    std::ofstream ofs(filePath);
-    if (!ofs) return false;
-    ofs << "[\n";
-    for (size_t i = 0; i < commands.size(); ++i) {
-        const auto& cmd = commands[i];
-    ofs << "  {";
-        ofs << "\"operation\":\"" << cmd.operation << "\",";
-        ofs << "\"target\":\"" << cmd.target << "\",";
-        ofs << "\"index\":" << cmd.index << ",";
-        if (cmd.valueString.has_value()) {
-            ofs << "\"value\":\"" << cmd.valueString.value() << "\",";
-        } else if (cmd.value.has_value()) {
-            ofs << "\"value\":" << cmd.value.value() << ",";
+namespace ds
+{
+    bool JSONCommandSerializer::save(const std::vector<CommandData> &commands, const std::string &filePath)
+    {
+        std::ofstream ofs(filePath);
+        if (!ofs)
+            return false;
+
+        ofs << "{\n";
+        ofs << "  \"META\": {\n";
+        ofs << "    \"version\": \"1.0.0\",\n";
+        ofs << "    \"seed\": 123456789\n";
+        ofs << "  },\n";
+        ofs << "  \"vectorValues\": [],\n";
+        ofs << "  \"listValues\": [],\n";
+        ofs << "  \"commands\": [\n";
+
+        for (size_t i = 0; i < commands.size(); ++i)
+        {
+            const auto &cmd = commands[i];
+            ofs << "    {\n";
+            ofs << "      \"operation\": \"" << cmd.operation << "\",\n";
+            ofs << "      \"target\": \"" << cmd.target << "\",\n";
+
+            if (cmd.operation == "REMOVE" || cmd.operation == "INSERT")
+            {
+                ofs << "      \"index\": " << cmd.index << ",\n";
+            }
+            else
+            {
+                ofs << "      \"index\": null,\n";
+            }
+
+            if (cmd.valueString.has_value())
+            {
+                ofs << "      \"value\": \"" << cmd.valueString.value() << "\",\n";
+            }
+            else if (cmd.value.has_value())
+            {
+                ofs << "      \"value\": " << cmd.value.value() << ",\n";
+            }
+            else
+            {
+                ofs << "      \"value\": null,\n";
+            }
+
+            ofs << "      \"timestamp\": " << cmd.timestamp.count() << "\n";
+            ofs << "    }";
+            if (i + 1 < commands.size())
+                ofs << ",";
+            ofs << "\n";
         }
-        ofs << "\"timestamp\":" << cmd.timestamp.count();
-        ofs << "}";
-        if (i + 1 < commands.size()) ofs << ",";
-        ofs << "\n";
+
+        ofs << "  ]\n";
+        ofs << "}\n";
+        return true;
     }
-    ofs << "]\n";
-    return true;
-}
 
-bool JSONCommandSerializer::load(std::vector<CommandData>& commands, const std::string& filePath) {
-    std::ifstream ifs(filePath);
-    if (!ifs) return false;
-    std::stringstream buffer; buffer << ifs.rdbuf();
-    std::string json = buffer.str();
-    commands.clear();
+    bool JSONCommandSerializer::load(std::vector<CommandData> &commands, const std::string &filePath)
+    {
+        std::ifstream ifs(filePath);
+        if (!ifs)
+            return false;
+        std::stringstream buffer;
+        buffer << ifs.rdbuf();
+        std::string json = buffer.str();
+        commands.clear();
 
-    
-    auto skipWS = [&](size_t& p){ while (p < json.size() && std::isspace((unsigned char)json[p])) ++p; };
-    size_t p=0; skipWS(p);
-    if (p < json.size() && json[p] == '{') {
-        
-        size_t commandsKey = json.find("\"commands\"", p);
-        if (commandsKey != std::string::npos) {
-            size_t arrStart = json.find('[', commandsKey);
-            if (arrStart != std::string::npos) {
-                int depth = 0; size_t arrEnd = arrStart;
-                for (; arrEnd < json.size(); ++arrEnd) {
-                    if (json[arrEnd] == '[') depth++;
-                    else if (json[arrEnd] == ']') { depth--; if (depth==0) { ++arrEnd; break; } }
+        m_vectorValues.clear();
+        m_listValues.clear();
+
+        auto extractArrayValues = [&json](const std::string &arrayName) -> std::vector<std::string>
+        {
+            std::vector<std::string> result;
+            size_t keyPos = json.find("\"" + arrayName + "\"");
+            if (keyPos != std::string::npos)
+            {
+                size_t arrStart = json.find('[', keyPos);
+                if (arrStart != std::string::npos)
+                {
+                    size_t arrEnd = arrStart + 1;
+                    int depth = 1;
+                    while (arrEnd < json.size() && depth > 0)
+                    {
+                        if (json[arrEnd] == '[')
+                            depth++;
+                        else if (json[arrEnd] == ']')
+                            depth--;
+                        arrEnd++;
+                    }
+                    if (depth == 0)
+                    {
+                        std::string arrayContent = json.substr(arrStart + 1, arrEnd - arrStart - 2);
+                        bool inQuotes = false;
+                        std::string current;
+                        for (size_t i = 0; i < arrayContent.size(); ++i)
+                        {
+                            char c = arrayContent[i];
+                            if (c == '"')
+                            {
+                                inQuotes = !inQuotes;
+                                if (!inQuotes && !current.empty())
+                                {
+                                    result.push_back(current);
+                                    current.clear();
+                                }
+                            }
+                            else if (inQuotes)
+                            {
+                                current += c;
+                            }
+                        }
+                    }
                 }
-                if (depth==0) {
-                    std::string arrayText = json.substr(arrStart, arrEnd - arrStart); 
-                    
-                    json = arrayText; 
+            }
+            return result;
+        };
+
+        m_vectorValues = extractArrayValues("vectorValues");
+        m_listValues = extractArrayValues("listValues");
+
+        size_t cmdStart = json.find("\"commands\"");
+        if (cmdStart == std::string::npos)
+            return false;
+
+        cmdStart = json.find('[', cmdStart);
+        if (cmdStart == std::string::npos)
+            return false;
+
+        size_t i = cmdStart + 1;
+        while (i < json.size())
+        {
+            while (i < json.size() && (json[i] == ' ' || json[i] == '\n' || json[i] == '\t'))
+                i++;
+            if (i >= json.size() || json[i] == ']')
+                break;
+            if (json[i] != '{')
+                return false;
+
+            size_t objEnd = i + 1;
+            int depth = 1;
+            while (objEnd < json.size() && depth > 0)
+            {
+                if (json[objEnd] == '{')
+                    depth++;
+                else if (json[objEnd] == '}')
+                    depth--;
+                objEnd++;
+            }
+            if (depth != 0)
+                return false;
+
+            std::string cmdJson = json.substr(i, objEnd - i);
+            CommandData cmd;
+
+            auto findValue = [&cmdJson](const std::string &key) -> std::string
+            {
+                size_t keyPos = cmdJson.find("\"" + key + "\"");
+                if (keyPos == std::string::npos)
+                    return "";
+                size_t colonPos = cmdJson.find(':', keyPos);
+                if (colonPos == std::string::npos)
+                    return "";
+                size_t start = colonPos + 1;
+                while (start < cmdJson.size() && std::isspace(cmdJson[start]))
+                    start++;
+                if (start >= cmdJson.size())
+                    return "";
+
+                if (cmdJson[start] == '"')
+                {
+                    size_t end = start + 1;
+                    while (end < cmdJson.size() && cmdJson[end] != '"')
+                    {
+                        if (cmdJson[end] == '\\')
+                            end++;
+                        end++;
+                    }
+                    return (end < cmdJson.size()) ? cmdJson.substr(start + 1, end - start - 1) : "";
+                }
+                else if (cmdJson[start] == 'n')
+                {
+                    return "null";
+                }
+                else
+                {
+                    size_t end = start;
+                    while (end < cmdJson.size() && !std::isspace(cmdJson[end]) &&
+                           cmdJson[end] != ',' && cmdJson[end] != '}')
+                        end++;
+                    return cmdJson.substr(start, end - start);
+                }
+            };
+
+            cmd.operation = findValue("operation");
+            cmd.target = findValue("target");
+            std::string value = findValue("value");
+            if (value != "null" && !value.empty())
+            {
+                try
+                {
+                    bool isNumeric = !value.empty() && std::all_of(value.begin(), value.end(),
+                                                                   [](char c)
+                                                                   { return std::isdigit(c) || c == '-'; });
+                    if (isNumeric)
+                    {
+                        cmd.value = std::stoi(value);
+                    }
+                    else
+                    {
+                        cmd.valueString = value;
+                    }
+                }
+                catch (...)
+                {
+                    cmd.valueString = value;
                 }
             }
-        }
-    }
+            std::string index = findValue("index");
+            if (index != "null" && !index.empty())
+            {
+                try
+                {
+                    cmd.index = std::stoull(index);
+                }
+                catch (...)
+                {
+                    cmd.index = 0;
+                }
+            }
+            std::string timestampStr = findValue("timestamp");
+            if (!timestampStr.empty() && timestampStr != "null")
+            {
+                try
+                {
+                    cmd.timestamp = std::chrono::milliseconds(std::stoll(timestampStr));
+                }
+                catch (...)
+                {
+                    cmd.timestamp = std::chrono::milliseconds(0);
+                }
+            }
 
-    
-    enum class State { SeekArray, InArray, InObject, Key, Colon, Value, CommaOrEnd };
-    State st = State::SeekArray;
-    size_t i = 0; CommandData current; std::string key; bool inString = false; std::string accum;
-    auto pushCommand = [&](){ commands.push_back(current); current = CommandData{}; };
-    auto trim = [](std::string s){ size_t b=0; while (b<s.size() && std::isspace((unsigned char)s[b])) ++b; size_t e=s.size(); while (e> b && std::isspace((unsigned char)s[e-1])) --e; return s.substr(b,e-b); };
-    auto parseValue = [&](const std::string& k, const std::string& raw){ std::string v = trim(raw); if (v.size()>=2 && v.front()=='"' && v.back()=='"') v = v.substr(1,v.size()-2); if (k=="operation") current.operation=v; else if(k=="target") current.target=v; else if(k=="index") { try { current.index = (size_t)std::stoull(v); } catch(...){} } else if(k=="value" || k=="valueString") { if(!v.empty()) { bool numeric=true; size_t p2=0; if(v[0]=='-'||v[0]=='+') p2=1; for(;p2<v.size();++p2) if(!std::isdigit((unsigned char)v[p2])) { numeric=false; break;} if(numeric){ try { current.value = std::stoi(v);} catch(...) { current.valueString = v;} } else { current.valueString = v; } } } else if(k=="timestamp") { try { current.timestamp = std::chrono::milliseconds(std::stoll(v)); } catch(...){} } };
-    while (i < json.size()) {
-        char c = json[i];
-        if (st == State::SeekArray) {
-            if (c == '[') st = State::InArray;
-        } else if (st == State::InArray) {
-            if (c == '{') { st = State::InObject; current = CommandData{}; }
-            else if (std::isspace((unsigned char)c) || c==',') { }
-            else if (c == ']') break;
-        } else if (st == State::InObject) {
-            if (c == '"') { inString=true; accum.clear(); st = State::Key; }
-            else if (c == '}') { pushCommand(); st = State::CommaOrEnd; }
-        } else if (st == State::Key) {
-            if (inString) {
-                if (c == '"') { inString=false; key = accum; st = State::Colon; }
-                else if (c == '\\' && i+1 < json.size()) { accum.push_back(json[i+1]); ++i; }
-                else accum.push_back(c);
-            }
-        } else if (st == State::Colon) {
-            if (c == ':') { st = State::Value; accum.clear(); inString=false; }
-        } else if (st == State::Value) {
-            if (!inString && c == '"') { inString=true; accum.clear(); }
-            else if (inString) {
-                if (c == '"') { inString=false; parseValue(key, '"'+accum+'"'); st = State::CommaOrEnd; }
-                else if (c=='\\' && i+1<json.size()) { accum.push_back(json[i+1]); ++i; }
-                else accum.push_back(c);
-            } else {
-                if (c==',' || c=='}') { parseValue(key, accum); if (c=='}'){ pushCommand(); st = State::CommaOrEnd; } else st = State::InObject; }
-                else if (!std::isspace((unsigned char)c)) accum.push_back(c);
-            }
-        } else if (st == State::CommaOrEnd) {
-            if (c == ',') st = State::InArray;
-            else if (c == ']') break;
+            commands.push_back(cmd);
+
+            i = objEnd;
+            while (i < json.size() && (json[i] == ',' || json[i] == ' ' || json[i] == '\n' || json[i] == '\t'))
+                i++;
         }
-        ++i;
+
+        return true;
     }
-    return true;
-}
 }

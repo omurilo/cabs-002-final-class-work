@@ -76,7 +76,7 @@ void StructureController::executeAndRecord(const std::string& op, ds::CommandRec
                 if (after == before + 1) {
                     if (auto vec = dynamic_cast<VectorVisualizer*>(m_visualizer)) vec->insert(val, idx);
                     else if (auto list = dynamic_cast<LinkedListVisualizer*>(m_visualizer)) { list->insertAt(val, idx); }
-                    if (recorder) recorder->record("INSERT", targetName, idx, val);
+                    if (recorder) recorder->record("INSERT BACK", targetName, idx, val);
                 }
             });
         } else if (op == "remove") {
@@ -88,7 +88,7 @@ void StructureController::executeAndRecord(const std::string& op, ds::CommandRec
                     if (after + 1 == before) {
                         if (auto vec = dynamic_cast<VectorVisualizer*>(m_visualizer)) vec->remove(0);
                         else if (auto list = dynamic_cast<LinkedListVisualizer*>(m_visualizer)) list->pop_front();
-                        if (recorder) recorder->record("REMOVE", targetName, 0, std::nullopt);
+                        if (recorder) recorder->record("REMOVE FRONT", targetName, 0, std::nullopt);
                     }
                 }
             });
@@ -113,11 +113,11 @@ void StructureController::executeAndRecord(const std::string& op, ds::CommandRec
             size_t idx = m_structure->size();
             int val = std::rand() % 100;
             m_structure->insert(idx, val);
-            if (recorder) recorder->record("INSERT", targetName, idx, val);
+            if (recorder) recorder->record("INSERT BACK", targetName, idx, val);
         } else if (op == "remove") {
             if (m_structure->size() > 0) {
                 m_structure->remove(0);
-                if (recorder) recorder->record("REMOVE", targetName, 0, std::nullopt);
+                if (recorder) recorder->record("REMOVE FRONT", targetName, 0, std::nullopt);
             }
         } else if (op == "highlight") {
             if (m_structure->size() > 0 && recorder) recorder->record("HIGHLIGHT", targetName, 0, std::nullopt);
@@ -158,3 +158,62 @@ void StructureController::insertAt(size_t idx, int val) {
     }
 }
 
+void StructureController::insertAt(size_t idx, const std::string& val) {
+    if (!m_structure) return;
+    
+    if (m_visualizer) {
+        if (auto vec = dynamic_cast<VectorVisualizer*>(m_visualizer)) {
+            int intVal = val.empty() ? 0 : static_cast<int>(val[0]);
+            vec->insert(intVal, idx);
+        } else if (auto list = dynamic_cast<LinkedListVisualizer*>(m_visualizer)) {
+            list->insertAtString(val, idx);
+        }
+    }
+}
+
+void StructureController::insertBack(int val) {
+    if (!m_structure) return;
+    size_t idx = m_structure->size();
+    insertAt(idx, val);
+}
+
+void StructureController::insertBack(const std::string& val) {
+    if (!m_structure) return;
+    size_t idx = m_structure->size();
+    insertAt(idx, val);
+}
+
+void StructureController::insertFront(int val) {
+    if (!m_structure) return;
+    insertAt(0, val);
+}
+
+void StructureController::insertFront(const std::string& val) {
+    if (!m_structure) return;
+    insertAt(0, val);
+}
+
+void StructureController::removeFront() {
+    if (!m_structure) return;
+    removeAt(0);
+}
+
+void StructureController::removeBack() {
+    if (!m_structure) return;
+    if (m_structure->size() > 0) {
+        removeAt(m_structure->size() - 1);
+    }
+}
+
+void StructureController::clear() {
+    if (!m_structure) return;
+    m_structure->clear();
+    if (m_visualizer) {
+        if (auto vec = dynamic_cast<VectorVisualizer*>(m_visualizer)) {
+            vec->clearAnimated();
+        } else if (auto list = dynamic_cast<LinkedListVisualizer*>(m_visualizer)) {
+            list->clearAnimated();
+        }
+        m_visualizer->render(m_structure->getState());
+    }
+}

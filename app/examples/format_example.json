@@ -54,6 +54,13 @@
       "index": null,
       "value": null,
       "timestamp": 90
+    },
+    {
+      "operation": "CLEAR",
+      "target": "list",
+      "index": null,
+      "value": null,
+      "timestamp": 105
     }
   ]
 }
