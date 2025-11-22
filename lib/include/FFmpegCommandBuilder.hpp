@@ -15,8 +15,9 @@ namespace ds {
             std::filesystem::path pattern = std::filesystem::path(framesDir) / "frame_%04d.png";
             std::ostringstream cmd;
 
-            cmd << "ffmpeg -y -hide_banner -loglevel error -progress pipe:1";
+            cmd << "ffmpeg -y -hide_banner -loglevel info -progress pipe:1";
             cmd << " -framerate " << config.fps;
+            cmd << " -start_number 0";
             cmd << " -i \"" << pattern.string() << "\"";
 
             if (config.forcedSize) {

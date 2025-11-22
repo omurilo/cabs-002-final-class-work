@@ -10,6 +10,31 @@ ApplicationController::ApplicationController()
     m_window.setFramerateLimit(60);
 }
 
+ApplicationController::~ApplicationController() {
+    std::cerr << "[Shutdown] Iniciando destrutor ApplicationController" << std::endl;
+    if (m_exportController) {
+        m_exportController->shutdown();
+        std::cerr << "[Shutdown] ExportController finalizado" << std::endl;
+    }
+    if (m_subtitleModel) m_subtitleModel->detachAll();
+    if (m_hudModel) m_hudModel->detachAll();
+    if (m_exportStatusModel) m_exportStatusModel->detachAll();
+    if (m_replayModel) m_replayModel->detachAll();
+    if (m_vectorModel) m_vectorModel->detachAll();
+    if (m_listModel) m_listModel->detachAll();
+
+    m_subtitleView.reset();
+    m_hudView.reset();
+    m_vectorView.reset();
+    m_listView.reset();
+    m_replayController.reset();
+    m_vectorController.reset();
+    m_listController.reset();
+    m_inputController.reset();
+    m_helpController.reset();
+    std::cerr << "[Shutdown] Destrutor ApplicationController concluído" << std::endl;
+}
+
 bool ApplicationController::initialize() {
     std::cout << "[Startup] Biblioteca core versão " << ds::version() << " (" 
               << DS_VERSION_MAJOR << '.' << DS_VERSION_MINOR << '.' << DS_VERSION_PATCH << ")" << std::endl;
@@ -221,14 +246,11 @@ void ApplicationController::autoLoadCommands() {
         if (m_recorder->load(recordJSON)) {
             std::cout << "[AutoReplay] Carregado " << m_recorder->get().size() << " comandos de '" << recordJSON << "'\n";
             
-            // Carregar valores iniciais automaticamente
             auto vectorValues = m_recorder->getVectorValues();
             auto listValues = m_recorder->getListValues();
             
-            // Carregar valores do vector
             for (const auto& value : vectorValues) {
                 try {
-                    // Verificar se é numérico
                     bool isNumeric = !value.empty() && std::all_of(value.begin(), value.end(), [](char c) { return std::isdigit(c) || c == '-'; });
                     if (isNumeric) {
                         int intValue = std::stoi(value);
@@ -241,10 +263,8 @@ void ApplicationController::autoLoadCommands() {
                 }
             }
             
-            // Carregar valores da lista
             for (const auto& value : listValues) {
                 try {
-                    // Verificar se é numérico
                     bool isNumeric = !value.empty() && std::all_of(value.begin(), value.end(), [](char c) { return std::isdigit(c) || c == '-'; });
                     if (isNumeric) {
                         int intValue = std::stoi(value);
@@ -318,12 +338,12 @@ void ApplicationController::update(float deltaTime) {
     
     if (m_replayController) {
         m_replayController->update(deltaTime);
-        
-        if (m_replayController->active()) {
-            m_hudModel->setReplayState(true, m_replayController->clock(), false, 1.0f);
-        } else {
-            m_hudModel->setReplayState(false, 0.0f, false, 1.0f);
-        }
+        m_hudModel->setReplayState(
+            m_replayController->active(),
+            m_replayController->clock(),
+            m_replayController->paused(),
+            m_replayController->speed()
+        );
     }
     
     m_hudModel->setRecording(m_recorder->isRecording());

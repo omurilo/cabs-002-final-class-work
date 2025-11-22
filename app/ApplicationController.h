@@ -23,7 +23,7 @@
 class ApplicationController {
 public:
     ApplicationController();
-    ~ApplicationController() = default;
+    ~ApplicationController();
     
     bool initialize();
     void run();

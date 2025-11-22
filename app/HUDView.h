@@ -65,7 +65,12 @@ private:
             if (m_state.replayPaused) {
                 replayText += " [PAUSED]";
             }
+            replayText += " x" + std::to_string(m_state.replaySpeed);
             createHudLine(replayText, appstyle::HUD_SMALL, sf::Color(180, 200, 255));
+        }
+
+        if (m_state.capturing) {
+            createHudLine("Frames: (E/M p/ export)", appstyle::HUD_SMALL, sf::Color(150, 220, 160));
         }
         
         if (m_state.exportingFrames) {

@@ -54,6 +54,8 @@ public:
     const std::vector<Subtitle>& getSubtitles() const { return m_subtitles; }
     
     void attach(ObserverFn fn) { m_observers.push_back(fn); }
+
+    void detachAll() { m_observers.clear(); }
     
 private:
     void notify() {

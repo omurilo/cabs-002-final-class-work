@@ -1,126 +1,100 @@
 #pragma once
-#include <SFML/Graphics.hpp>
+
 #include <vector>
-#include <algorithm> 
-
-
-struct VisualNode {
-    int value; 
-    std::string label; 
-    sf::Color color = sf::Color::Cyan;
-    sf::Vector2f position;
-};
-
+#include <SFML/Graphics.hpp>
+#include <string>
+#include "VisualNode.h"
 
 class AnimationStep {
 public:
     virtual ~AnimationStep() = default;
-    
     virtual bool update(std::vector<VisualNode>& nodes, float dt) = 0;
 };
 
-
-
 class ColorStep : public AnimationStep {
+    size_t m_index; 
+    sf::Color m_target; 
+    sf::Color m_start; 
+    float m_duration; 
+    float m_progress = 0.f;
 public:
-    ColorStep(size_t index, sf::Color targetColor, float duration = 0.2f)
-        : m_index(index), m_targetColor(targetColor), m_duration(duration) {}
-
+    ColorStep(size_t index, sf::Color target, float duration = 0.3f)
+        : m_index(index), m_target(target), m_duration(duration) {}
     bool update(std::vector<VisualNode>& nodes, float dt) override {
-        if (m_index >= nodes.size()) return true; 
-        if (m_elapsed == 0.f) { 
-            m_startColor = nodes[m_index].color;
-        }
-        m_elapsed += dt;
-        float ratio = std::min(m_elapsed / m_duration, 1.0f);
-
-        
-        sf::Uint8 r = static_cast<sf::Uint8>(m_startColor.r + (m_targetColor.r - m_startColor.r) * ratio);
-        sf::Uint8 g = static_cast<sf::Uint8>(m_startColor.g + (m_targetColor.g - m_startColor.g) * ratio);
-        sf::Uint8 b = static_cast<sf::Uint8>(m_startColor.b + (m_targetColor.b - m_startColor.b) * ratio);
-        nodes[m_index].color = sf::Color(r, g, b);
-
-        return m_elapsed >= m_duration;
+        if (m_index >= nodes.size()) return true;
+        if (m_progress == 0.f) m_start = nodes[m_index].color;
+        m_progress += dt / m_duration;
+        float t = (m_progress > 1.f ? 1.f : m_progress);
+        auto lerp = [&](sf::Uint8 a, sf::Uint8 b) { return static_cast<sf::Uint8>(a + (b - a) * t); };
+        nodes[m_index].color = sf::Color(
+            lerp(m_start.r, m_target.r),
+            lerp(m_start.g, m_target.g),
+            lerp(m_start.b, m_target.b)
+        );
+        return m_progress >= 1.f;
     }
-
-private:
-    size_t m_index;
-    sf::Color m_startColor;
-    sf::Color m_targetColor;
-    float m_duration;
-    float m_elapsed = 0.f;
 };
 
-
-
 class MoveStep : public AnimationStep {
+    size_t m_index; 
+    sf::Vector2f m_target; 
+    sf::Vector2f m_start; 
+    float m_duration; 
+    float m_progress = 0.f;
 public:
-    MoveStep(size_t index, sf::Vector2f targetPosition, float duration = 0.5f)
-        : m_index(index), m_targetPosition(targetPosition), m_duration(duration) {}
-
+    MoveStep(size_t index, sf::Vector2f target, float duration = 0.5f)
+        : m_index(index), m_target(target), m_duration(duration) {}
     bool update(std::vector<VisualNode>& nodes, float dt) override {
-        if (m_index >= nodes.size()) return true; 
-        if (m_elapsed == 0.f) {
-            m_startPosition = nodes[m_index].position;
-        }
-        m_elapsed += dt;
-        float ratio = std::min(m_elapsed / m_duration, 1.0f);
-
-        
-        nodes[m_index].position.x = m_startPosition.x + (m_targetPosition.x - m_startPosition.x) * ratio;
-        nodes[m_index].position.y = m_startPosition.y + (m_targetPosition.y - m_startPosition.y) * ratio;
-
-        return m_elapsed >= m_duration;
+        if (m_index >= nodes.size()) return true;
+        if (m_progress == 0.f) m_start = nodes[m_index].position;
+        m_progress += dt / m_duration;
+        float t = (m_progress > 1.f ? 1.f : m_progress);
+        nodes[m_index].position = m_start + (m_target - m_start) * t;
+        return m_progress >= 1.f;
     }
-private:
-    size_t m_index;
-    sf::Vector2f m_startPosition;
-    sf::Vector2f m_targetPosition;
-    float m_duration;
-    float m_elapsed = 0.f;
 };
 
 class DataInsertStep : public AnimationStep {
+    int m_value; 
+    size_t m_index; 
+    sf::Vector2f m_startPos; 
+    std::string m_label; 
+    bool m_done = false;
 public:
-    DataInsertStep(int value, size_t index, sf::Vector2f startPos, std::string label = {})
+    DataInsertStep(int value, size_t index, sf::Vector2f startPos, std::string label = "")
         : m_value(value), m_index(index), m_startPos(startPos), m_label(std::move(label)) {}
-
     bool update(std::vector<VisualNode>& nodes, float /*dt*/) override {
-        if (m_index > nodes.size()) return true;
-        
-        VisualNode newNode;
-        newNode.value = m_value;
-        newNode.label = m_label;
-        newNode.position = m_startPos;
-        newNode.color = sf::Color::Green;
-        nodes.insert(nodes.begin() + m_index, newNode);
+        if (m_done) return true;
+        if (m_index > nodes.size()) m_index = nodes.size();
+        VisualNode n; 
+        n.value = m_value; 
+        n.label = m_label; 
+        n.position = m_startPos; 
+        n.color = sf::Color::Cyan;
+        nodes.insert(nodes.begin() + m_index, n);
+        m_done = true; 
         return true;
     }
-private:
-    int m_value;
-    size_t m_index;
-    sf::Vector2f m_startPos;
-    std::string m_label;
 };
 
 class DataRemoveStep : public AnimationStep {
+    size_t m_index; 
+    bool m_done = false;
 public:
-    DataRemoveStep(size_t index) : m_index(index) {}
-
+    explicit DataRemoveStep(size_t index) : m_index(index) {}
     bool update(std::vector<VisualNode>& nodes, float /*dt*/) override {
-        if (m_index >= nodes.size()) return true;
-        
-        nodes.erase(nodes.begin() + m_index);
+        if (m_done) return true;
+        if (m_index < nodes.size()) nodes.erase(nodes.begin() + m_index);
+        m_done = true; 
         return true;
     }
-private:
-    size_t m_index;
 };
 
 class ClearAllStep : public AnimationStep {
+    bool m_done = false;
 public:
     bool update(std::vector<VisualNode>& nodes, float /*dt*/) override {
-        nodes.clear();
+        if (!m_done) { nodes.clear(); m_done = true; }
         return true;
     }
 };

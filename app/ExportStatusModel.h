@@ -109,6 +109,11 @@ public:
         std::lock_guard<std::mutex> lock(m_observerMutex);
         m_observers.push_back(fn); 
     }
+
+    void detachAll() {
+        std::lock_guard<std::mutex> lock(m_observerMutex);
+        m_observers.clear();
+    }
     
 private:
     void notify() {

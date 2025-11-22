@@ -102,6 +102,8 @@ public:
     const ReplayState& getState() const { return m_state; }
     
     void attach(ObserverFn fn) { m_observers.push_back(fn); }
+
+    void detachAll() { m_observers.clear(); }
     
 private:
     void updateCommandCount() {

@@ -54,6 +54,97 @@
       "index": null,
       "value": null,
       "timestamp": 90
+    },
+    {
+      "operation": "INSERT BACK",
+      "target": "list",
+      "index": null,
+      "value": "omega",
+      "timestamp": 105
+    },
+    {
+      "operation": "INSERT",
+      "target": "list",
+      "index": 1,
+      "value": "delta",
+      "timestamp": 120
+    },
+    {
+      "operation": "INSERT BACK",
+      "target": "vector",
+      "index": null,
+      "value": "50",
+      "timestamp": 135
+    },
+    {
+      "operation": "REMOVE",
+      "target": "list",
+      "index": 2,
+      "value": null,
+      "timestamp": 150
+    },
+    {
+      "operation": "INSERT FRONT",
+      "target": "list",
+      "index": null,
+      "value": "zero",
+      "timestamp": 165
+    },
+    {
+      "operation": "INSERT",
+      "target": "vector",
+      "index": 0,
+      "value": "1",
+      "timestamp": 180
+    },
+    {
+      "operation": "REMOVE BACK",
+      "target": "list",
+      "index": null,
+      "value": null,
+      "timestamp": 195
+    },
+    {
+      "operation": "INSERT BACK",
+      "target": "vector",
+      "index": null,
+      "value": "100",
+      "timestamp": 210
+    },
+    {
+      "operation": "REMOVE FRONT",
+      "target": "vector",
+      "index": null,
+      "value": null,
+      "timestamp": 225
+    },
+    {
+      "operation": "INSERT",
+      "target": "list",
+      "index": 2,
+      "value": "sigma",
+      "timestamp": 240
+    },
+    {
+      "operation": "REMOVE",
+      "target": "vector",
+      "index": 2,
+      "value": null,
+      "timestamp": 255
+    },
+    {
+      "operation": "INSERT FRONT",
+      "target": "vector",
+      "index": null,
+      "value": "0",
+      "timestamp": 270
+    },
+    {
+      "operation": "REMOVE BACK",
+      "target": "vector",
+      "index": null,
+      "value": null,
+      "timestamp": 285
     }
   ]
 }

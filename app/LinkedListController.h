@@ -78,7 +78,6 @@ public:
         m_view->animateHighlight(idx);
     }
     
-    // New methods for INSERT BACK, INSERT FRONT, etc.
     void insertBack(int val) {
         if (!m_model || !m_view) return;
         size_t idx = m_model->size();
