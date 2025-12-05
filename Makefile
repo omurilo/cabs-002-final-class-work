@@ -68,4 +68,7 @@ distclean: clean
 	@rm -f .DS_Store
 	@echo "distclean concluído."
 
-.PHONY: all clean run library
+build-doc:
+	@npx @marp-team/marp-cli@latest APRESENTACAO.md
+
+.PHONY: all clean run library build-doc

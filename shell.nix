@@ -14,6 +14,7 @@ pkgs.mkShell {
     ffmpeg            # export futuro de MP4
     gtest             # testes unitários (headers + cmake/pkgconfig)
     gcovr
+    nodejs
   ];
   # Variáveis para facilitar localização de libs (se necessário em Makefile futuramente)
   # Usar clang++ para gerar artefatos de cobertura compatíveis com llvm-cov
